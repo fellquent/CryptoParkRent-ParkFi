@@ -1,18 +1,23 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { ConnectionStatus } from "../shared/ConnectionStatus";
 
 export function AppLayout() {
+  const location = useLocation();
+  const isTestRoute = location.pathname.startsWith("/tests");
+
   return (
     <main>
-      <h1>ParkFi Frontend</h1>
+      {isTestRoute ? (
+        <>
+          <nav>
+            <Link to="/">Home</Link>{" "}
+            <Link to="/tests/getters">/tests/getters</Link>{" "}
+            <Link to="/tests/createSpot">/tests/createSpot</Link>
+          </nav>
 
-      <nav>
-        <Link to="/">Home</Link>{" "}
-        <Link to="/tests/getters">/tests/getters</Link>{" "}
-        <Link to="/tests/createSpot">/tests/createSpot</Link>
-      </nav>
-
-      <ConnectionStatus />
+          <ConnectionStatus />
+        </>
+      ) : null}
 
       <Outlet />
     </main>

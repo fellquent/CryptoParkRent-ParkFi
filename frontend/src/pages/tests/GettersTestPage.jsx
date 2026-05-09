@@ -19,16 +19,14 @@ import {
   getTotalSpots
 } from "../../services/parkingRegistryReadService";
 import {
-  getApprovedAddress,
-  getBookingToToken,
-  getOperatorApproval,
   getParkingPermitBookingManager,
   getParkingPermitNftName,
   getParkingPermitNftOwner,
   getParkingPermitNftSymbol,
-  getPermitData,
-  getPermitTokenUri,
-  getPermitValidity,
+  getParkingPermitRegistry,
+  getSpotTokenUri,
+  getSpotUser,
+  getSpotUserExpires,
   getSupportsInterface,
   getTokenBalance,
   getTokenOwner
@@ -149,14 +147,12 @@ export function GettersTestPage() {
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.name()", ({ parkingPermitNft }) => getParkingPermitNftName(parkingPermitNft))}>name()</button>
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.symbol()", ({ parkingPermitNft }) => getParkingPermitNftSymbol(parkingPermitNft))}>symbol()</button>
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.bookingManager()", ({ parkingPermitNft }) => getParkingPermitBookingManager(parkingPermitNft))}>bookingManager()</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.bookingToToken()", ({ parkingPermitNft }) => getBookingToToken(parkingPermitNft, form.bookingId))}>bookingToToken(bookingId)</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.permits()", ({ parkingPermitNft }) => getPermitData(parkingPermitNft, form.tokenId))}>permits(tokenId)</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.isPermitValid()", ({ parkingPermitNft }) => getPermitValidity(parkingPermitNft, form.tokenId))}>isPermitValid(tokenId)</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.tokenURI()", ({ parkingPermitNft }) => getPermitTokenUri(parkingPermitNft, form.tokenId))}>tokenURI(tokenId)</button>
+        <button type="button" onClick={() => runGetter("ParkingPermitNFT.registry()", ({ parkingPermitNft }) => getParkingPermitRegistry(parkingPermitNft))}>registry()</button>
+        <button type="button" onClick={() => runGetter("ParkingPermitNFT.userOf()", ({ parkingPermitNft }) => getSpotUser(parkingPermitNft, form.tokenId))}>userOf(tokenId)</button>
+        <button type="button" onClick={() => runGetter("ParkingPermitNFT.userExpires()", ({ parkingPermitNft }) => getSpotUserExpires(parkingPermitNft, form.tokenId))}>userExpires(tokenId)</button>
+        <button type="button" onClick={() => runGetter("ParkingPermitNFT.tokenURI()", ({ parkingPermitNft }) => getSpotTokenUri(parkingPermitNft, form.tokenId))}>tokenURI(tokenId)</button>
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.ownerOf()", ({ parkingPermitNft }) => getTokenOwner(parkingPermitNft, form.tokenId))}>ownerOf(tokenId)</button>
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.balanceOf()", ({ parkingPermitNft }) => getTokenBalance(parkingPermitNft, form.ownerAddress))}>balanceOf(ownerAddress)</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.getApproved()", ({ parkingPermitNft }) => getApprovedAddress(parkingPermitNft, form.tokenId))}>getApproved(tokenId)</button>
-        <button type="button" onClick={() => runGetter("ParkingPermitNFT.isApprovedForAll()", ({ parkingPermitNft }) => getOperatorApproval(parkingPermitNft, form.ownerAddress, form.operatorAddress))}>isApprovedForAll(ownerAddress, operatorAddress)</button>
         <button type="button" onClick={() => runGetter("ParkingPermitNFT.supportsInterface()", ({ parkingPermitNft }) => getSupportsInterface(parkingPermitNft, form.interfaceId))}>supportsInterface(interfaceId)</button>
       </section>
     </section>

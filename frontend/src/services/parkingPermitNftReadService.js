@@ -14,19 +14,19 @@ export async function getParkingPermitBookingManager(contract) {
   return contract.bookingManager();
 }
 
-export async function getBookingToToken(contract, bookingId) {
-  return contract.bookingToToken(bookingId);
+export async function getParkingPermitRegistry(contract) {
+  return contract.registry();
 }
 
-export async function getPermitData(contract, tokenId) {
-  return contract.permits(tokenId);
+export async function getSpotUser(contract, tokenId) {
+  return contract.userOf(tokenId);
 }
 
-export async function getPermitValidity(contract, tokenId) {
-  return contract.isPermitValid(tokenId);
+export async function getSpotUserExpires(contract, tokenId) {
+  return contract.userExpires(tokenId);
 }
 
-export async function getPermitTokenUri(contract, tokenId) {
+export async function getSpotTokenUri(contract, tokenId) {
   return contract.tokenURI(tokenId);
 }
 
