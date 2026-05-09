@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import "../SharedTypes.sol";
 
 interface IParkingRegistry {
+    function spotNFT() external view returns (address);
+
     function getParkingSpot(
         uint256 spotId
     ) external view returns (SharedTypes.ParkingSpot memory);
@@ -15,8 +17,7 @@ interface IParkingRegistry {
 
     function getTotalSpots() external view returns (uint256);
 
-    function getOwnerSpots(address ownerAddress)
-        external
-        view
-        returns (uint256[] memory);
+    function getOwnerSpots(
+        address ownerAddress
+    ) external view returns (uint256[] memory);
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 library SharedTypes {
     enum BookingStatus {
+        Reserved,
         Active,
         Completed,
         Cancelled

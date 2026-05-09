@@ -4,9 +4,11 @@ pragma solidity ^0.8.27;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+import "./ParkingPermitNFT.sol";
 import "./SharedTypes.sol";
 
 contract ParkingRegistry is Ownable, Pausable {
+    ParkingPermitNFT public immutable spotNFT;
     uint256 private _nextSpotId = 1;
 
     mapping(uint256 => SharedTypes.ParkingSpot) private _spots;
@@ -27,7 +29,13 @@ contract ParkingRegistry is Ownable, Pausable {
 
     event ParkingSpotDeactivated(uint256 indexed spotId);
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(
+        address nftAddress,
+        address initialOwner
+    ) Ownable(initialOwner) {
+        require(nftAddress != address(0), "Invalid NFT address");
+        spotNFT = ParkingPermitNFT(nftAddress);
+    }
 
     function createParkingSpot(
         string calldata locationName,
@@ -67,6 +75,7 @@ contract ParkingRegistry is Ownable, Pausable {
         });
 
         _ownerSpots[msg.sender].push(spotId);
+        spotNFT.mintParkingSpot(msg.sender, spotId);
 
         emit ParkingSpotCreated(spotId, msg.sender, pricePerHour);
 
@@ -82,7 +91,7 @@ contract ParkingRegistry is Ownable, Pausable {
     ) external whenNotPaused {
         SharedTypes.ParkingSpot storage spot = _spots[spotId];
 
-        require(spot.owner == msg.sender, "Not owner");
+        require(spotNFT.ownerOf(spotId) == msg.sender, "Not owner");
         require(spot.isActive, "Spot inactive");
         require(pricePerHour > 0, "Price must be > 0");
         require(capacity > 0, "Capacity must be > 0");
@@ -101,7 +110,7 @@ contract ParkingRegistry is Ownable, Pausable {
     ) external whenNotPaused {
         SharedTypes.ParkingSpot storage spot = _spots[spotId];
 
-        require(spot.owner == msg.sender, "Not owner");
+        require(spotNFT.ownerOf(spotId) == msg.sender, "Not owner");
         require(spot.isActive, "Spot inactive");
 
         spot.isAvailable = isAvailable;
@@ -113,7 +122,7 @@ contract ParkingRegistry is Ownable, Pausable {
         SharedTypes.ParkingSpot storage spot = _spots[spotId];
 
         require(
-            spot.owner == msg.sender || owner() == msg.sender,
+            spotNFT.ownerOf(spotId) == msg.sender || owner() == msg.sender,
             "Unauthorized"
         );
 

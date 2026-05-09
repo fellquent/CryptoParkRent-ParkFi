@@ -1,46 +1,58 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract ParkingPermitNFT is ERC721, Ownable {
+interface IERC4907 {
+    event UpdateUser(
+        uint256 indexed tokenId,
+        address indexed user,
+        uint64 expires
+    );
+
+    function setUser(
+        uint256 tokenId,
+        address user,
+        uint64 expires
+    ) external;
+
+    function userOf(uint256 tokenId) external view returns (address);
+
+    function userExpires(uint256 tokenId) external view returns (uint256);
+}
+
+contract ParkingPermitNFT is ERC721, Ownable, IERC4907 {
     using Strings for uint256;
 
-    struct PermitData {
-        uint256 bookingId;
-        uint256 parkingSpotId;
-        uint256 expirationTime;
+    struct UserInfo {
+        address user;
+        uint64 expires;
     }
 
-    uint256 private _nextTokenId = 1;
-
-    // tokenId => permit data
-    mapping(uint256 => PermitData) public permits;
-
-    // bookingId => tokenId
-    mapping(uint256 => uint256) public bookingToToken;
+    mapping(uint256 => UserInfo) private _users;
 
     address public bookingManager;
+    address public registry;
 
     string private _baseTokenURI;
 
-    event PermitMinted(
+    event ParkingSpotMinted(
         uint256 indexed tokenId,
-        uint256 indexed bookingId,
-        address indexed renter
+        address indexed owner
     );
 
-    event BookingManagerUpdated(
-        address indexed bookingManager
-    );
+    event BookingManagerUpdated(address indexed bookingManager);
+    event RegistryUpdated(address indexed registry);
 
     modifier onlyBookingManager() {
-        require(
-            msg.sender == bookingManager,
-            "Not booking manager"
-        );
+        require(msg.sender == bookingManager, "Not booking manager");
+        _;
+    }
+
+    modifier onlyRegistry() {
+        require(msg.sender == registry, "Not registry");
         _;
     }
 
@@ -48,101 +60,82 @@ contract ParkingPermitNFT is ERC721, Ownable {
         address initialOwner,
         string memory baseURI
     )
-        ERC721("ParkFi Permit", "PFP")
+        ERC721("ParkFi Spot", "PFS")
         Ownable(initialOwner)
     {
         _baseTokenURI = baseURI;
     }
 
-    function setBookingManager(
-        address manager
-    ) external onlyOwner {
-        require(
-            manager != address(0),
-            "Invalid address"
-        );
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IERC4907).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    function setBookingManager(address manager) external onlyOwner {
+        require(manager != address(0), "Invalid address");
 
         bookingManager = manager;
 
         emit BookingManagerUpdated(manager);
     }
 
-    function mintPermit(
-        address renter,
-        uint256 bookingId,
-        uint256 parkingSpotId,
-        uint256 expirationTime
-    )
-        external
-        onlyBookingManager
-        returns (uint256)
-    {
-        require(
-            bookingToToken[bookingId] == 0,
-            "Permit already exists"
-        );
+    function setRegistry(address registryAddress) external onlyOwner {
+        require(registryAddress != address(0), "Invalid address");
 
-        uint256 tokenId = _nextTokenId++;
+        registry = registryAddress;
 
-        _safeMint(renter, tokenId);
+        emit RegistryUpdated(registryAddress);
+    }
 
-        permits[tokenId] = PermitData({
-            bookingId: bookingId,
-            parkingSpotId: parkingSpotId,
-            expirationTime: expirationTime
-        });
+    function mintParkingSpot(
+        address spotOwner,
+        uint256 tokenId
+    ) external onlyRegistry returns (uint256) {
+        _safeMint(spotOwner, tokenId);
 
-        bookingToToken[bookingId] = tokenId;
-
-        emit PermitMinted(
-            tokenId,
-            bookingId,
-            renter
-        );
+        emit ParkingSpotMinted(tokenId, spotOwner);
 
         return tokenId;
     }
 
-    function isPermitValid(
-        uint256 tokenId
-    ) external view returns (bool) {
-        require(
-            _ownerOf(tokenId) != address(0),
-            "Permit does not exist"
-        );
+    function setUser(
+        uint256 tokenId,
+        address user,
+        uint64 expires
+    ) external onlyBookingManager {
+        _requireOwned(tokenId);
 
-        return (
-            block.timestamp <=
-            permits[tokenId].expirationTime
-        );
+        _users[tokenId] = UserInfo({
+            user: user,
+            expires: expires
+        });
+
+        emit UpdateUser(tokenId, user, expires);
     }
 
-    function burnExpiredPermit(
-        uint256 tokenId
-    ) external {
-        require(
-            _ownerOf(tokenId) != address(0),
-            "Permit does not exist"
-        );
+    function userOf(uint256 tokenId) public view returns (address) {
+        _requireOwned(tokenId);
 
-        require(
-            block.timestamp >
-            permits[tokenId].expirationTime,
-            "Permit still active"
-        );
+        if (uint256(_users[tokenId].expires) >= block.timestamp) {
+            return _users[tokenId].user;
+        }
 
-        _burn(tokenId);
+        return address(0);
+    }
 
-        delete permits[tokenId];
+    function userExpires(uint256 tokenId) external view returns (uint256) {
+        _requireOwned(tokenId);
+
+        return _users[tokenId].expires;
     }
 
     function tokenURI(
         uint256 tokenId
     ) public view override returns (string memory) {
-        require(
-            _ownerOf(tokenId) != address(0),
-            "Token does not exist"
-        );
+        _requireOwned(tokenId);
 
         return string(
             abi.encodePacked(
@@ -166,5 +159,23 @@ contract ParkingPermitNFT is ERC721, Ownable {
         returns (string memory)
     {
         return _baseTokenURI;
+    }
+
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal virtual override returns (address) {
+        address from = _ownerOf(tokenId);
+
+        if (from != address(0) && to != address(0)) {
+            revert("Spot transfers disabled");
+        }
+
+        if (to == address(0) && _users[tokenId].user != address(0)) {
+            delete _users[tokenId];
+        }
+
+        return super._update(to, tokenId, auth);
     }
 }

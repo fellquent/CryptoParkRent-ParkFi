@@ -2,12 +2,12 @@
 pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import "./SharedTypes.sol";
 import "./interfaces/IParkingRegistry.sol";
 import "./ParkingPermitNFT.sol";
+import "./SharedTypes.sol";
 
 contract BookingManager is Ownable, ReentrancyGuard, Pausable {
     IParkingRegistry public immutable registry;
@@ -19,8 +19,6 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
     uint256 public accumulatedFees;
 
     mapping(uint256 => SharedTypes.Booking) public bookings;
-
-    // spotId => booking ids
     mapping(uint256 => uint256[]) private _spotBookings;
 
     event SpotBooked(
@@ -29,8 +27,12 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         address indexed renter
     );
 
-    event BookingCancelled(uint256 indexed bookingId);
+    event BookingActivated(
+        uint256 indexed bookingId,
+        uint256 indexed spotId
+    );
 
+    event BookingCancelled(uint256 indexed bookingId);
     event PaymentReleased(uint256 indexed bookingId);
 
     constructor(
@@ -40,6 +42,7 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
     ) Ownable(initialOwner) {
         require(registryAddress != address(0), "Invalid registry address");
         require(nftAddress != address(0), "Invalid NFT address");
+
         registry = IParkingRegistry(registryAddress);
         permitNFT = ParkingPermitNFT(nftAddress);
     }
@@ -49,30 +52,22 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         uint256 startTime,
         uint256 endTime
     ) external payable nonReentrant whenNotPaused {
-        require(startTime > block.timestamp, "Start must be future");
-
+        require(startTime >= block.timestamp, "Start must be present or future");
         require(endTime > startTime, "Invalid time range");
 
         SharedTypes.ParkingSpot memory spot = registry.getParkingSpot(spotId);
 
         require(spot.isActive, "Spot inactive");
         require(spot.isAvailable, "Spot unavailable");
+        require(!_hasOverlap(spotId, startTime, endTime), "Time slot unavailable");
 
         uint256 durationHours = (endTime - startTime) / 1 hours;
-
         require(durationHours > 0, "Minimum 1 hour");
 
         uint256 totalPrice = durationHours * spot.pricePerHour;
-
         require(msg.value == totalPrice, "Incorrect payment");
 
-        require(
-            !_hasOverlap(spotId, startTime, endTime),
-            "Time slot unavailable"
-        );
-
         uint256 fee = (totalPrice * platformFeeBps) / 10000;
-
         uint256 bookingId = _nextBookingId++;
 
         bookings[bookingId] = SharedTypes.Booking({
@@ -84,36 +79,37 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
             endTime: endTime,
             totalPrice: totalPrice,
             platformFee: fee,
-            status: SharedTypes.BookingStatus.Active
+            status: SharedTypes.BookingStatus.Reserved
         });
 
         _spotBookings[spotId].push(bookingId);
 
-        // Mint parking permit NFT
-        permitNFT.mintPermit(msg.sender, bookingId, spotId, endTime);
+        if (startTime == block.timestamp) {
+            _activateBooking(bookingId);
+        }
 
         emit SpotBooked(bookingId, spotId, msg.sender);
+    }
+
+    function activateBooking(uint256 bookingId) external whenNotPaused {
+        _activateBooking(bookingId);
     }
 
     function cancelBooking(uint256 bookingId) external nonReentrant {
         SharedTypes.Booking storage booking = bookings[bookingId];
 
         require(
-            booking.status == SharedTypes.BookingStatus.Active,
-            "Booking inactive"
+            booking.status == SharedTypes.BookingStatus.Reserved,
+            "Booking not cancellable"
         );
-
         require(msg.sender == booking.renter, "Not renter");
-
         require(block.timestamp < booking.startTime, "Booking already started");
 
         booking.status = SharedTypes.BookingStatus.Cancelled;
 
         uint256 refund;
-
         uint256 timeUntilStart = booking.startTime - block.timestamp;
 
-        // Cancellation policy
         if (timeUntilStart >= 24 hours) {
             refund = booking.totalPrice;
         } else if (timeUntilStart >= 1 hours) {
@@ -134,21 +130,23 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         SharedTypes.Booking storage booking = bookings[bookingId];
 
         require(
-            booking.status == SharedTypes.BookingStatus.Active,
+            booking.status == SharedTypes.BookingStatus.Reserved ||
+                booking.status == SharedTypes.BookingStatus.Active,
             "Booking inactive"
         );
-
         require(block.timestamp >= booking.endTime, "Booking not finished");
 
         booking.status = SharedTypes.BookingStatus.Completed;
+
+        if (permitNFT.userOf(booking.spotId) != address(0)) {
+            permitNFT.setUser(booking.spotId, address(0), 0);
+        }
 
         accumulatedFees += booking.platformFee;
 
         uint256 ownerAmount = booking.totalPrice - booking.platformFee;
 
-        (bool success, ) = payable(booking.spotOwner).call{value: ownerAmount}(
-            ""
-        );
+        (bool success, ) = payable(booking.spotOwner).call{value: ownerAmount}("");
         require(success, "Payout failed");
 
         emit PaymentReleased(bookingId);
@@ -185,7 +183,10 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < ids.length; i++) {
             SharedTypes.Booking memory existing = bookings[ids[i]];
 
-            if (existing.status != SharedTypes.BookingStatus.Active) {
+            if (
+                existing.status == SharedTypes.BookingStatus.Cancelled ||
+                existing.status == SharedTypes.BookingStatus.Completed
+            ) {
                 continue;
             }
 
@@ -198,6 +199,22 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         }
 
         return false;
+    }
+
+    function _activateBooking(uint256 bookingId) internal {
+        SharedTypes.Booking storage booking = bookings[bookingId];
+
+        require(
+            booking.status == SharedTypes.BookingStatus.Reserved,
+            "Booking not reservable"
+        );
+        require(block.timestamp >= booking.startTime, "Booking not started");
+        require(block.timestamp < booking.endTime, "Booking expired");
+
+        booking.status = SharedTypes.BookingStatus.Active;
+        permitNFT.setUser(booking.spotId, booking.renter, uint64(booking.endTime));
+
+        emit BookingActivated(bookingId, booking.spotId);
     }
 
     function pause() external onlyOwner {

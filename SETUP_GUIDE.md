@@ -89,7 +89,7 @@ Replace with your actual deployed addresses from Step 1.2.
 ### 3.3 Start Frontend Development Server
 
 ```bash
-npm start
+npm run dev
 ```
 
 The app will open at `http://localhost:3000`
