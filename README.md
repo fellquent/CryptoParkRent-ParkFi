@@ -29,10 +29,13 @@ Current contract features:
 ### Frontend
 
 - MetaMask wallet connection.
+- Expected network check with a MetaMask switch/add-network prompt for local Hardhat.
+- Wallet balance and transaction progress feedback.
 - Interactive map of active parking spots.
 - Yellow markers for spots currently in use.
 - Add spot form with map-based point picker instead of manual coordinate entry.
 - Booking page for selecting start time and duration.
+- Booking page shows existing reserved/active windows before submitting.
 - Profile dashboard for renter bookings, owned spots, spot editing, deactivation, cancellation, and payment redemption.
 
 ---
@@ -112,10 +115,14 @@ Booking: 0x...
 
 ### 3. Configure and run the frontend
 
-Create or update `frontend/.env`:
+Create or update `frontend/.env.local`:
 
 ```env
 VITE_BOOKING_MANAGER_ADDRESS=0xYOUR_LOCAL_BOOKING_MANAGER_ADDRESS
+VITE_EXPECTED_CHAIN_ID=31337
+VITE_EXPECTED_CHAIN_NAME=Hardhat Local
+VITE_EXPECTED_CHAIN_RPC_URL=http://127.0.0.1:8545
+VITE_EXPECTED_CHAIN_CURRENCY=ETH
 ```
 
 Then start Vite:
@@ -131,7 +138,7 @@ Open the Vite URL, usually:
 http://localhost:5173
 ```
 
-In MetaMask, switch to the local Hardhat network and connect the wallet. The frontend discovers `ParkingRegistry` and `ParkingPermitNFT` from `BookingManager`, so only `VITE_BOOKING_MANAGER_ADDRESS` is required.
+In MetaMask, connect the wallet. The frontend will ask MetaMask to switch to the configured chain if needed. The frontend discovers `ParkingRegistry` and `ParkingPermitNFT` from `BookingManager`, so only `VITE_BOOKING_MANAGER_ADDRESS` changes after each redeploy.
 
 ---
 
@@ -166,10 +173,13 @@ Booking: 0x...
 
 ### 3. Point the frontend to Sepolia
 
-Create or update `frontend/.env`:
+Create or update `frontend/.env.local`:
 
 ```env
 VITE_BOOKING_MANAGER_ADDRESS=0xYOUR_SEPOLIA_BOOKING_MANAGER_ADDRESS
+VITE_EXPECTED_CHAIN_ID=11155111
+VITE_EXPECTED_CHAIN_NAME=Sepolia
+VITE_EXPECTED_CHAIN_CURRENCY=ETH
 ```
 
 Start the frontend:

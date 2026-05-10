@@ -5,6 +5,11 @@ import { LocationPickerMap } from "../components/map/LocationPickerMap";
 import { WalletButton } from "../components/shared/WalletButton";
 import { createParkingSpot } from "../services/parkingRegistryWriteService";
 import { useContractConnection } from "../state/contractConnectionContext";
+import {
+  getTransactionErrorMessage,
+  getTransactionProgressLabel
+} from "../utils/transactionErrors";
+import { shortenHash } from "../utils/formatters";
 
 const DEFAULT_FORM = {
   capacity: "1",
@@ -37,13 +42,30 @@ function previewCoordinateToE6(value) {
   return Math.round(Number(value) * 1_000_000).toString();
 }
 
+function validatePositiveInteger(value, fieldName) {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    throw new Error(`${fieldName} must be a whole number greater than 0.`);
+  }
+}
+
+function validatePositiveNumber(value, fieldName) {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    throw new Error(`${fieldName} must be greater than 0.`);
+  }
+}
+
 export function AddSpotPage() {
   const navigate = useNavigate();
-  const { account, connect, contracts } = useContractConnection();
+  const { account, balance, chainId, connect, contracts } = useContractConnection();
   const [form, setForm] = useState(DEFAULT_FORM);
   const [hasPickedLocation, setHasPickedLocation] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [status, setStatus] = useState("Idle");
+  const [transactionHash, setTransactionHash] = useState("");
   const [error, setError] = useState(null);
 
   const updateField = (event) => {
@@ -58,6 +80,7 @@ export function AddSpotPage() {
   const submit = async (event) => {
     event.preventDefault();
     setError(null);
+    setTransactionHash("");
 
     if (!contracts) {
       setStatus("Connect wallet first");
@@ -67,6 +90,9 @@ export function AddSpotPage() {
     setStatus("Submitting...");
 
     try {
+      validatePositiveInteger(form.capacity, "Vehicle capacity");
+      validatePositiveNumber(form.priceEth, "Hourly price");
+
       const payload = {
         capacity: form.capacity,
         description: form.description,
@@ -76,13 +102,20 @@ export function AddSpotPage() {
         pricePerHour: parseEther(form.priceEth || "0").toString()
       };
 
-      await createParkingSpot(contracts.parkingRegistry, payload);
+      await createParkingSpot(contracts.parkingRegistry, payload, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
+      });
 
       setStatus("Success");
       navigate("/");
     } catch (nextError) {
       console.error("Add spot failed", nextError);
-      setError(nextError);
+      setError(new Error(getTransactionErrorMessage(nextError, "Could not create spot.")));
       setStatus("Failed");
     }
   };
@@ -116,7 +149,7 @@ export function AddSpotPage() {
           Profile
         </Link>
 
-        <WalletButton account={account} connect={connect} />
+        <WalletButton account={account} balance={balance} chainId={chainId} connect={connect} />
       </header>
 
       {isLocationPickerOpen ? (
@@ -134,7 +167,7 @@ export function AddSpotPage() {
             <p className="eyebrow">New listing</p>
             <h1 className="page-title">Add parking spot</h1>
             <p className="muted">
-              Create a map listing with its coordinates, capacity, and hourly price.
+              Create a map listing with its location, vehicle capacity, and hourly price.
             </p>
           </div>
 
@@ -188,7 +221,7 @@ export function AddSpotPage() {
                   <input
                     className="form-input"
                     id="priceEth"
-                    min="0"
+                    min="0.000001"
                     name="priceEth"
                     required
                     step="0.000001"
@@ -199,7 +232,7 @@ export function AddSpotPage() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="capacity">Capacity</label>
+                  <label htmlFor="capacity">Vehicle capacity</label>
                   <input
                     className="form-input"
                     id="capacity"
@@ -214,10 +247,19 @@ export function AddSpotPage() {
                 </div>
               </div>
 
-              <button className="button" disabled={status === "Submitting..."} type="submit">
-                {status === "Submitting..." ? "Creating..." : "Create Spot"}
+              <button
+                className="button"
+                disabled={["Confirm in MetaMask", "Transaction sent", "Submitting..."].includes(status)}
+                type="submit"
+              >
+                {["Confirm in MetaMask", "Transaction sent", "Submitting..."].includes(status)
+                  ? "Creating..."
+                  : "Create Spot"}
               </button>
 
+              {transactionHash ? (
+                <p className="notice">Transaction: {shortenHash(transactionHash)}</p>
+              ) : null}
               {error ? <p className="notice">{error.message}</p> : null}
             </form>
 
@@ -232,7 +274,7 @@ export function AddSpotPage() {
                   <strong>{form.priceEth || "0"} ETH</strong>
                 </div>
                 <div className="detail-row">
-                  <span className="muted">Capacity</span>
+                  <span className="muted">Vehicle capacity</span>
                   <strong>{form.capacity || "0"}</strong>
                 </div>
                 <div className="detail-row">

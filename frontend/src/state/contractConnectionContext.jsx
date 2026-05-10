@@ -112,6 +112,7 @@ export function ContractConnectionProvider({ children }) {
   const value = useMemo(
     () => ({
       account: connection?.account || null,
+      balance: connection?.balance ?? null,
       chainId: connection?.chainId || null,
       connect,
       contractAddresses: connection?.contractAddresses || null,
