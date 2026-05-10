@@ -5,156 +5,6 @@ import { loadHomePageData } from "../services/homeService";
 import { useContractConnection } from "../state/contractConnectionContext";
 import { formatSpotStatus, shortenAddress } from "../utils/formatters";
 
-const pageStyles = {
-  page: {
-    background:
-      "radial-gradient(circle at top left, #dcfce7 0%, #f8fafc 42%, #ecfccb 100%)",
-    minHeight: "100vh",
-    padding: "24px"
-  },
-  shell: {
-    display: "grid",
-    gap: "20px",
-    margin: "0 auto",
-    maxWidth: "1440px"
-  },
-  nav: {
-    alignItems: "center",
-    background: "rgba(255, 255, 255, 0.88)",
-    backdropFilter: "blur(14px)",
-    border: "1px solid rgba(34, 197, 94, 0.16)",
-    borderRadius: "24px",
-    boxShadow: "0 20px 45px rgba(21, 128, 61, 0.08)",
-    display: "grid",
-    gap: "16px",
-    gridTemplateColumns: "1.1fr 2fr auto auto auto",
-    padding: "18px 22px"
-  },
-  logo: {
-    color: "#14532d",
-    fontFamily: "Georgia, serif",
-    fontSize: "1.8rem",
-    fontWeight: 700,
-    margin: 0
-  },
-  search: {
-    background: "#f8fafc",
-    border: "1px solid #d1fae5",
-    borderRadius: "999px",
-    padding: "14px 18px"
-  },
-  navButton: {
-    background: "#ffffff",
-    border: "1px solid #d1fae5",
-    borderRadius: "999px",
-    color: "#166534",
-    cursor: "pointer",
-    fontWeight: 600,
-    padding: "12px 18px",
-    textDecoration: "none"
-  },
-  walletButton: {
-    background: "#166534",
-    border: "none",
-    borderRadius: "999px",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontWeight: 700,
-    padding: "12px 18px"
-  },
-  hero: {
-    display: "grid",
-    gap: "20px",
-    gridTemplateColumns: "2fr 1fr"
-  },
-  mapCard: {
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(240,253,244,0.96) 100%)",
-    border: "1px solid rgba(34, 197, 94, 0.16)",
-    borderRadius: "32px",
-    boxShadow: "0 20px 45px rgba(21, 128, 61, 0.08)",
-    overflow: "hidden",
-    position: "relative"
-  },
-  mapHeader: {
-    alignItems: "center",
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "20px 24px 0"
-  },
-  mapBoard: {
-    height: "520px",
-    margin: "20px",
-    overflow: "hidden",
-    position: "relative",
-    borderRadius: "28px"
-  },
-  statsColumn: {
-    display: "grid",
-    gap: "20px"
-  },
-  card: {
-    background: "rgba(255, 255, 255, 0.92)",
-    border: "1px solid rgba(34, 197, 94, 0.16)",
-    borderRadius: "28px",
-    boxShadow: "0 20px 45px rgba(21, 128, 61, 0.08)",
-    padding: "22px"
-  },
-  metrics: {
-    display: "grid",
-    gap: "14px",
-    gridTemplateColumns: "repeat(3, 1fr)"
-  },
-  drawer: {
-    background: "#ffffff",
-    borderTop: "1px solid rgba(34, 197, 94, 0.14)",
-    display: "grid",
-    gap: "18px",
-    gridTemplateColumns: "2fr 1fr 1fr auto",
-    padding: "22px 24px"
-  },
-  drawerButton: {
-    background: "#166534",
-    border: "none",
-    borderRadius: "18px",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontWeight: 700,
-    padding: "14px 18px"
-  },
-  muted: {
-    color: "#475569",
-    margin: 0
-  },
-  sectionTitle: {
-    color: "#14532d",
-    fontFamily: "Georgia, serif",
-    fontSize: "1.4rem",
-    margin: "0 0 12px"
-  },
-  sessionList: {
-    display: "grid",
-    gap: "14px"
-  },
-  sessionCard: {
-    background: "#f8fafc",
-    border: "1px solid #dcfce7",
-    borderRadius: "20px",
-    padding: "16px"
-  },
-  featuredList: {
-    display: "grid",
-    gap: "12px",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
-  },
-  featuredCard: {
-    background: "#ffffff",
-    border: "1px solid #dcfce7",
-    borderRadius: "20px",
-    padding: "16px"
-  }
-};
-
 export function HomePage() {
   const { account, connect, contracts, status } = useContractConnection();
   const [homeData, setHomeData] = useState({
@@ -169,6 +19,7 @@ export function HomePage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSpotListOpen, setIsSpotListOpen] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState(null);
 
   useEffect(() => {
@@ -186,9 +37,6 @@ export function HomePage() {
 
         if (active) {
           setHomeData(nextData);
-          if (!selectedSpotId && nextData.spots[0]) {
-            setSelectedSpotId(nextData.spots[0].id);
-          }
         }
       } catch (error) {
         console.error("Failed to load home page data", error);
@@ -207,152 +55,174 @@ export function HomePage() {
   }, [account, contracts]);
 
   const visibleSpots = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return homeData.spots;
+    }
+
     return homeData.spots.filter((spot) =>
-      (spot.locationName || "").toLowerCase().includes(searchTerm.toLowerCase())
+      (spot.locationName || "").toLowerCase().includes(normalizedSearch)
     );
   }, [homeData.spots, searchTerm]);
 
   const selectedSpot =
-    visibleSpots.find((spot) => spot.id === selectedSpotId) || visibleSpots[0] || null;
+    visibleSpots.find((spot) => spot.id === selectedSpotId) || null;
+  const hasSelection = Boolean(selectedSpot);
+
+  useEffect(() => {
+    if (selectedSpotId && !selectedSpot) {
+      setSelectedSpotId(null);
+    }
+  }, [selectedSpot, selectedSpotId]);
 
   return (
-    <div style={pageStyles.page}>
-      <div style={pageStyles.shell}>
-        <section style={pageStyles.nav}>
-          <h2 style={pageStyles.logo}>ParkFi</h2>
+    <div className="map-page">
+      <header className="topbar">
+        <Link className="brand" to="/">
+          ParkFi
+        </Link>
 
-          <input
-            aria-label="Search parking spots"
-            placeholder="Search by location"
-            style={pageStyles.search}
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+        <input
+          aria-label="Search parking spots"
+          className="search-input"
+          placeholder="Search parking spots"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+
+        <Link className="button-secondary" to="/add-spot">
+          Add Spot
+        </Link>
+
+        <Link className="button-ghost" to="/profile">
+          Profile
+        </Link>
+
+        <button className="button" type="button" onClick={connect}>
+          {account ? shortenAddress(account) : "Connect Wallet"}
+        </button>
+      </header>
+
+      <section className={`map-workspace${isSpotListOpen ? " has-left-panel" : ""}`}>
+        <div className="map-surface">
+          <SpotMap
+            selectedSpot={selectedSpot}
+            spots={visibleSpots}
+            onEmptyClick={() => setSelectedSpotId(null)}
+            onSelectSpot={setSelectedSpotId}
           />
-
-          <Link style={pageStyles.navButton} to="/tests/createSpot">
-            Add Spot
-          </Link>
-
-          <button style={pageStyles.navButton} type="button">
-            Profile
+          
+          <button
+            className={`spot-list-rail${isSpotListOpen ? " is-active" : ""}`}
+            type="button"
+            onClick={() => setIsSpotListOpen((current) => !current)}
+          >
+            <span>{visibleSpots.length}</span>
+            Spots
           </button>
+        </div>
 
-          <button style={pageStyles.walletButton} type="button" onClick={connect}>
-            {account ? shortenAddress(account) : "Connect Wallet"}
-          </button>
-        </section>
+        {isSpotListOpen ? (
+          <aside className="left-panel">
+            <p className="eyebrow">Nearby parking</p>
+            <h1 className="panel-title">Choose a spot</h1>
+            <p className="muted">
+              {status === "Connected"
+                ? `${homeData.metrics.availableSpots} available spots`
+                : "Connect your wallet to load live spot data."}
+            </p>
 
-        <section style={pageStyles.hero}>
-          <div style={pageStyles.mapCard}>
-            <div style={pageStyles.mapHeader}>
-              <div>
-                <p style={pageStyles.muted}>Map-first parking marketplace</p>
-                <h3 style={pageStyles.sectionTitle}>Live spot availability</h3>
+            <div className="detail-list">
+              <div className="detail-row">
+                <span className="muted">Owned</span>
+                <strong>{homeData.metrics.ownedSpots}</strong>
               </div>
-              <p style={pageStyles.muted}>
-                {isLoading ? "Refreshing map..." : `${visibleSpots.length} markers visible`}
-              </p>
+              <div className="detail-row">
+                <span className="muted">Active rentals</span>
+                <strong>{homeData.metrics.activeSessions}</strong>
+              </div>
             </div>
 
-            <div style={pageStyles.mapBoard}>
-              <SpotMap
-                selectedSpot={selectedSpot}
-                spots={visibleSpots}
-                onSelectSpot={setSelectedSpotId}
-              />
+            <div className="spot-list">
+              {visibleSpots.length ? (
+                visibleSpots.map((spot) => (
+                  <button
+                    className={`spot-list-button${selectedSpot?.id === spot.id ? " is-active" : ""
+                      }`}
+                    key={spot.id.toString()}
+                    type="button"
+                    onClick={() => setSelectedSpotId(spot.id)}
+                  >
+                    <strong>{spot.locationName}</strong>
+                    <span className="muted">{spot.displayPrice}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="notice">
+                  {isLoading ? "Loading spots..." : "No spots match this search."}
+                </p>
+              )}
             </div>
+          </aside>
+        ) : null}
 
-            {selectedSpot ? (
-              <div style={pageStyles.drawer}>
-                <div>
-                  <p style={pageStyles.muted}>Selected Spot</p>
-                  <h3 style={pageStyles.sectionTitle}>{selectedSpot.locationName}</h3>
-                  <p style={pageStyles.muted}>{selectedSpot.description || "No description yet."}</p>
+        {hasSelection ? (
+          <>
+            <aside className="info-panel">
+              <button
+                aria-label="Close selected spot"
+                className="panel-close"
+                type="button"
+                onClick={() => setSelectedSpotId(null)}
+              >
+                X
+              </button>
+
+              <div>
+                <p className="eyebrow">Selected spot</p>
+                <h2 className="panel-title">{selectedSpot.locationName}</h2>
+                <p className="muted">
+                  {selectedSpot.description || "No description has been added yet."}
+                </p>
+              </div>
+
+              <div className="detail-list">
+                <div className="detail-row">
+                  <span className="muted">Status</span>
+                  <strong>{formatSpotStatus(selectedSpot.status)}</strong>
                 </div>
-
-                <div>
-                  <p style={pageStyles.muted}>Owner</p>
+                <div className="detail-row">
+                  <span className="muted">Owner</span>
                   <strong>{shortenAddress(selectedSpot.owner)}</strong>
                 </div>
-
-                <div>
-                  <p style={pageStyles.muted}>Status</p>
-                  <strong>{formatSpotStatus(selectedSpot.status)}</strong>
-                  <p style={pageStyles.muted}>{selectedSpot.displayPrice}</p>
+                <div className="detail-row">
+                  <span className="muted">Capacity</span>
+                  <strong>{selectedSpot.capacity.toString()}</strong>
                 </div>
-
-                <button
-                  style={pageStyles.drawerButton}
-                  type="button"
-                  onClick={() => console.log("Book Spot clicked", selectedSpot)}
-                >
-                  Book Spot
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <div style={pageStyles.statsColumn}>
-            <section style={pageStyles.card}>
-              <p style={pageStyles.muted}>Session overview</p>
-              <div style={pageStyles.metrics}>
-                <div>
-                  <p style={pageStyles.muted}>Available</p>
-                  <strong>{homeData.metrics.availableSpots}</strong>
-                </div>
-                <div>
-                  <p style={pageStyles.muted}>Owned</p>
-                  <strong>{homeData.metrics.ownedSpots}</strong>
-                </div>
-                <div>
-                  <p style={pageStyles.muted}>Active rentals</p>
-                  <strong>{homeData.metrics.activeSessions}</strong>
+                <div className="detail-row">
+                  <span className="muted">Coordinates</span>
+                  <strong>
+                    {selectedSpot.latitude.toFixed(5)}, {selectedSpot.longitude.toFixed(5)}
+                  </strong>
                 </div>
               </div>
-            </section>
 
-            <section style={pageStyles.card}>
-              <p style={pageStyles.muted}>Active Parking Sessions</p>
-              <h3 style={pageStyles.sectionTitle}>Your current rights</h3>
-              <div style={pageStyles.sessionList}>
-                {homeData.activeSessions.length ? (
-                  homeData.activeSessions.map((session) => (
-                    <article key={session.id} style={pageStyles.sessionCard}>
-                      <strong>{session.locationName}</strong>
-                      <p style={pageStyles.muted}>Owner: {shortenAddress(session.owner)}</p>
-                      <p style={pageStyles.muted}>{session.expiresLabel}</p>
-                    </article>
-                  ))
-                ) : (
-                  <p style={pageStyles.muted}>
-                    {status === "Connected"
-                      ? "No active parking sessions right now."
-                      : "Connect your wallet to see active sessions."}
-                  </p>
-                )}
+            </aside>
+
+            <footer className="booking-bar">
+              <div className="price-lockup">
+                <span className="muted">Price per hour</span>
+                <strong>{selectedSpot.displayPrice}</strong>
               </div>
-            </section>
-          </div>
-        </section>
 
-        <section style={pageStyles.card}>
-          <p style={pageStyles.muted}>Marketplace snapshot</p>
-          <h3 style={pageStyles.sectionTitle}>Featured active spots</h3>
-          <div style={pageStyles.featuredList}>
-            {homeData.featuredSpots.length ? (
-              homeData.featuredSpots.map((spot) => (
-                <article key={spot.id.toString()} style={pageStyles.featuredCard}>
-                  <strong>{spot.locationName}</strong>
-                  <p style={pageStyles.muted}>{spot.description || "Open parking listing"}</p>
-                  <p style={pageStyles.muted}>Capacity: {spot.capacity.toString()}</p>
-                </article>
-              ))
-            ) : (
-              <p style={pageStyles.muted}>No active spots yet. Add the first one.</p>
-            )}
-          </div>
-        </section>
-      </div>
+              <Link className="button" to={`/booking/${selectedSpot.id.toString()}`}>
+                Buy Parking
+              </Link>
+            </footer>
+          </>
+        ) : null}
+      </section>
     </div>
   );
 }

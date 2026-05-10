@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useMemo } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 const statusColors = {
   available: "#22c55e",
@@ -33,7 +33,9 @@ function createMarkerIcon(status, isSelected) {
 function MapViewport({ spots, selectedSpot }) {
   const map = useMap();
 
-  useMemo(() => {
+  useEffect(() => {
+    map.invalidateSize();
+
     if (!spots.length) {
       map.setView([48.1486, 17.1077], 13);
       return;
@@ -58,7 +60,17 @@ function MapViewport({ spots, selectedSpot }) {
   return null;
 }
 
-export function SpotMap({ selectedSpot, spots, onSelectSpot }) {
+function EmptyMapClick({ onEmptyClick }) {
+  useMapEvents({
+    click: () => {
+      onEmptyClick?.();
+    }
+  });
+
+  return null;
+}
+
+export function SpotMap({ selectedSpot, spots, onSelectSpot, onEmptyClick }) {
   return (
     <MapContainer
       center={[48.1486, 17.1077]}
@@ -72,12 +84,16 @@ export function SpotMap({ selectedSpot, spots, onSelectSpot }) {
       />
 
       <MapViewport selectedSpot={selectedSpot} spots={spots} />
+      <EmptyMapClick onEmptyClick={onEmptyClick} />
 
       {spots.map((spot) => (
         <Marker
           key={spot.id.toString()}
           eventHandlers={{
-            click: () => onSelectSpot(spot.id)
+            click: (event) => {
+              event.originalEvent.stopPropagation();
+              onSelectSpot(spot.id);
+            }
           }}
           icon={createMarkerIcon(spot.status, selectedSpot?.id === spot.id)}
           position={[spot.latitude, spot.longitude]}

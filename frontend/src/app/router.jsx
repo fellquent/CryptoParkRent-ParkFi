@@ -1,6 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
+import { AddSpotPage } from "../pages/AddSpotPage";
+import { BookingPage } from "../pages/BookingPage";
 import { HomePage } from "../pages/HomePage";
+import { ProfilePage } from "../pages/ProfilePage";
 import { CreateSpotTestPage } from "../pages/tests/CreateSpotTestPage";
 import { GettersTestPage } from "../pages/tests/GettersTestPage";
 
@@ -12,6 +15,18 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />
+      },
+      {
+        path: "add-spot",
+        element: <AddSpotPage />
+      },
+      {
+        path: "booking/:spotId",
+        element: <BookingPage />
+      },
+      {
+        path: "profile",
+        element: <ProfilePage />
       },
       {
         path: "tests/getters",

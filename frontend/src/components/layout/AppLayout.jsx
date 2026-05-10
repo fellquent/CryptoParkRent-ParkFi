@@ -6,11 +6,13 @@ export function AppLayout() {
   const isTestRoute = location.pathname.startsWith("/tests");
 
   return (
-    <main>
+    <main className="app-root">
       {isTestRoute ? (
         <>
-          <nav>
+          <nav className="test-nav">
             <Link to="/">Home</Link>{" "}
+            <Link to="/add-spot">Add Spot</Link>{" "}
+            <Link to="/profile">Profile</Link>{" "}
             <Link to="/tests/getters">/tests/getters</Link>{" "}
             <Link to="/tests/createSpot">/tests/createSpot</Link>
           </nav>

@@ -1,4 +1,4 @@
-import { ZeroAddress, formatEther } from "ethers";
+import { ZeroAddress } from "ethers";
 import {
   getAllActiveSpots,
   getParkingSpot,
@@ -9,6 +9,7 @@ import {
   getSpotUserExpires,
   getTokenOwner
 } from "./parkingPermitNftReadService";
+import { formatPricePerHour } from "../utils/formatters";
 
 function normalizeSpotStruct(rawSpot) {
   return {
@@ -97,7 +98,7 @@ export async function loadHomePageData(contracts, account) {
     return {
       ...normalizedSpot,
       currentUser,
-      displayPrice: `${formatEther(normalizedSpot.pricePerHour)} ETH / h`,
+      displayPrice: formatPricePerHour(normalizedSpot.pricePerHour),
       owner,
       status: getMarkerStatus(normalizedSpot, currentUser),
       tokenId: spotId,

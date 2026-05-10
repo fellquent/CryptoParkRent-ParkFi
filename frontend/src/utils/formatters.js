@@ -1,3 +1,5 @@
+import { formatEther } from "ethers";
+
 export function shortenAddress(address) {
   if (!address) {
     return "-";
@@ -16,4 +18,37 @@ export function formatSpotStatus(status) {
   }
 
   return "Unavailable";
+}
+
+export function formatEthValue(value, fallback = "-") {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  try {
+    return formatEther(value);
+  } catch (error) {
+    console.warn("Unable to format ETH value", { error, value });
+    return fallback;
+  }
+}
+
+export function formatEthAmount(value, fallback = "-") {
+  const formattedValue = formatEthValue(value, fallback);
+
+  if (formattedValue === fallback) {
+    return fallback;
+  }
+
+  return `${formattedValue} ETH`;
+}
+
+export function formatPricePerHour(value, fallback = "-") {
+  const formattedValue = formatEthValue(value, fallback);
+
+  if (formattedValue === fallback) {
+    return fallback;
+  }
+
+  return `${formattedValue} ETH / h`;
 }
