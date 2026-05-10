@@ -58,6 +58,23 @@ function isCurrentBooking(booking) {
   return Number(booking.endTime) >= now && booking.status !== 3;
 }
 
+function isUpcomingBooking(booking) {
+  const now = Math.floor(Date.now() / 1000);
+
+  return booking.status === 0 && Number(booking.startTime) > now;
+}
+
+function isActiveBookingWindow(booking) {
+  const now = Math.floor(Date.now() / 1000);
+  const isReservedOrActive = booking.status === 0 || booking.status === 1;
+
+  return (
+    isReservedOrActive &&
+    Number(booking.startTime) <= now &&
+    Number(booking.endTime) > now
+  );
+}
+
 async function getSpotSafe(parkingRegistry, spotId) {
   try {
     return normalizeSpotStruct(await getParkingSpot(parkingRegistry, spotId));
@@ -125,7 +142,10 @@ export async function loadRenterBookings(contracts, account) {
 
 export function splitBookingsByTime(bookings) {
   return {
-    current: bookings.filter((booking) => isCurrentBooking(booking)),
+    active: bookings.filter((booking) => isActiveBookingWindow(booking)),
+    cancelled: bookings.filter((booking) => booking.status === 3),
     history: bookings.filter((booking) => !isCurrentBooking(booking))
+      .filter((booking) => booking.status !== 3),
+    upcoming: bookings.filter((booking) => isUpcomingBooking(booking))
   };
 }

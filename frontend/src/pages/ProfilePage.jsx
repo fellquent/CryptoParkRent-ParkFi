@@ -9,6 +9,7 @@ import {
   splitBookingsByTime
 } from "../services/profileService";
 import {
+  activateBooking,
   cancelBooking,
   releasePayment
 } from "../services/bookingManagerWriteService";
@@ -18,28 +19,62 @@ import {
   updateParkingSpot
 } from "../services/parkingRegistryWriteService";
 import { useContractConnection } from "../state/contractConnectionContext";
-import { shortenAddress } from "../utils/formatters";
+import { shortenAddress, shortenHash } from "../utils/formatters";
+import {
+  getTransactionErrorMessage,
+  getTransactionProgressLabel
+} from "../utils/transactionErrors";
 
 function getActionErrorMessage(error) {
-  return error?.reason || error?.revert?.args?.[0] || error?.shortMessage || error?.message || "Transaction failed.";
+  return getTransactionErrorMessage(error, "Transaction failed.");
+}
+
+function validateSpotEditorForm(form) {
+  const capacity = Number(form.capacity);
+  const priceEth = Number(form.priceEth);
+
+  if (!Number.isInteger(capacity) || capacity < 1) {
+    throw new Error("Vehicle capacity must be a whole number greater than 0.");
+  }
+
+  if (!Number.isFinite(priceEth) || priceEth <= 0) {
+    throw new Error("Hourly price must be greater than 0.");
+  }
 }
 
 function BookingCard({ booking, contracts, mode, onUpdated }) {
   const [status, setStatus] = useState("Idle");
+  const [transactionHash, setTransactionHash] = useState("");
   const now = Math.floor(Date.now() / 1000);
   const isReserved = booking.status === 0;
   const isActive = booking.status === 1;
   const hasStarted = Number(booking.startTime) <= now;
   const hasEnded = Number(booking.endTime) <= now;
   const canCancel = mode === "renter" && isReserved && !hasStarted;
+  const canActivate = isReserved && hasStarted && !hasEnded;
   const canShowRedeem = mode === "owner" && (isReserved || isActive) && hasStarted;
   const canRedeem = canShowRedeem && hasEnded;
+  const isBusy = [
+    "Activating...",
+    "Cancelling...",
+    "Confirm in MetaMask",
+    "Redeeming...",
+    "Transaction sent"
+  ].includes(status);
 
   const runCancel = async () => {
     setStatus("Cancelling...");
+    setTransactionHash("");
 
     try {
-      await cancelBooking(contracts.bookingManager, booking.id);
+      await cancelBooking(contracts.bookingManager, booking.id, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
+      });
       setStatus("Cancelled");
       onUpdated();
     } catch (error) {
@@ -50,13 +85,42 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
 
   const runReleasePayment = async () => {
     setStatus("Redeeming...");
+    setTransactionHash("");
 
     try {
-      await releasePayment(contracts.bookingManager, booking.id);
+      await releasePayment(contracts.bookingManager, booking.id, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
+      });
       setStatus("Redeemed");
       onUpdated();
     } catch (error) {
       console.error("Payment release failed", error);
+      setStatus(getActionErrorMessage(error));
+    }
+  };
+
+  const runActivate = async () => {
+    setStatus("Activating...");
+    setTransactionHash("");
+
+    try {
+      await activateBooking(contracts.bookingManager, booking.id, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
+      });
+      setStatus("Activated");
+      onUpdated();
+    } catch (error) {
+      console.error("Booking activation failed", error);
       setStatus(getActionErrorMessage(error));
     }
   };
@@ -67,6 +131,7 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
         <button
           aria-label="Cancel booking"
           className="icon-button danger booking-card-action"
+          disabled={isBusy}
           title="Cancel booking"
           type="button"
           onClick={runCancel}
@@ -84,20 +149,33 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
 
       <div className="booking-card-footer">
         <strong>{booking.totalPriceLabel}</strong>
+        {canActivate ? (
+          <button
+            className="button-secondary"
+            disabled={isBusy}
+            type="button"
+            onClick={runActivate}
+          >
+            {isBusy && status !== "Idle" ? status : "Activate"}
+          </button>
+        ) : null}
         {canShowRedeem ? (
           <button
             className="button success-button"
-            disabled={!canRedeem || status === "Redeeming..."}
+            disabled={!canRedeem || isBusy}
             title={canRedeem ? "Redeem payment" : "Payment can be redeemed after the booking ends"}
             type="button"
             onClick={runReleasePayment}
           >
-            {status === "Redeeming..." ? "Redeeming..." : "Redeem payment"}
+            {isBusy && status !== "Idle" ? status : "Redeem payment"}
           </button>
         ) : null}
       </div>
 
       {status !== "Idle" ? <p className="notice compact">Status: {status}</p> : null}
+      {transactionHash ? (
+        <p className="notice compact">Transaction: {shortenHash(transactionHash)}</p>
+      ) : null}
     </article>
   );
 }
@@ -130,6 +208,13 @@ function SpotEditor({ contracts, spot, onUpdated }) {
     priceEth: spot.displayPrice.split(" ")[0]
   });
   const [status, setStatus] = useState("Idle");
+  const [transactionHash, setTransactionHash] = useState("");
+  const isBusy = [
+    "Confirm in MetaMask",
+    "Deactivating...",
+    "Saving...",
+    "Transaction sent"
+  ].includes(status);
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -143,32 +228,55 @@ function SpotEditor({ contracts, spot, onUpdated }) {
   const submit = async (event) => {
     event.preventDefault();
     setStatus("Saving...");
+    setTransactionHash("");
 
     try {
+      validateSpotEditorForm(form);
+
       await updateParkingSpot(contracts.parkingRegistry, spot.id, {
         capacity: form.capacity,
         description: form.description,
         locationName: form.locationName,
         pricePerHour: parseEther(form.priceEth || "0").toString()
+      }, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
       });
       setStatus("Saved");
       onUpdated();
     } catch (error) {
       console.error("Spot update failed", error);
-      setStatus("Failed");
+      setStatus(getActionErrorMessage(error));
     }
   };
 
   const toggleAvailability = async () => {
     setStatus("Saving...");
+    setTransactionHash("");
 
     try {
-      await setSpotAvailability(contracts.parkingRegistry, spot.id, !spot.isAvailable);
+      await setSpotAvailability(
+        contracts.parkingRegistry,
+        spot.id,
+        !spot.isAvailable,
+        {
+          onStatus: (update) => {
+            setStatus(getTransactionProgressLabel(update));
+            if (update.hash) {
+              setTransactionHash(update.hash);
+            }
+          }
+        }
+      );
       setStatus("Saved");
       onUpdated();
     } catch (error) {
       console.error("Availability update failed", error);
-      setStatus("Failed");
+      setStatus(getActionErrorMessage(error));
     }
   };
 
@@ -178,9 +286,17 @@ function SpotEditor({ contracts, spot, onUpdated }) {
     }
 
     setStatus("Deactivating...");
+    setTransactionHash("");
 
     try {
-      await deactivateParkingSpot(contracts.parkingRegistry, spot.id);
+      await deactivateParkingSpot(contracts.parkingRegistry, spot.id, {
+        onStatus: (update) => {
+          setStatus(getTransactionProgressLabel(update));
+          if (update.hash) {
+            setTransactionHash(update.hash);
+          }
+        }
+      });
       setStatus("Deactivated");
       onUpdated();
     } catch (error) {
@@ -194,6 +310,7 @@ function SpotEditor({ contracts, spot, onUpdated }) {
       <button
         aria-label="Deactivate spot"
         className="button-secondary danger-button spot-card-action"
+        disabled={isBusy}
         type="button"
         onClick={deactivateSpot}
       >
@@ -217,7 +334,7 @@ function SpotEditor({ contracts, spot, onUpdated }) {
           <input
             className="form-input"
             id={`price-${spot.id.toString()}`}
-            min="0"
+            min="0.000001"
             name="priceEth"
             step="0.000001"
             type="number"
@@ -227,7 +344,7 @@ function SpotEditor({ contracts, spot, onUpdated }) {
         </div>
 
         <div className="field">
-          <label htmlFor={`capacity-${spot.id.toString()}`}>Capacity</label>
+          <label htmlFor={`capacity-${spot.id.toString()}`}>Vehicle capacity</label>
           <input
             className="form-input"
             id={`capacity-${spot.id.toString()}`}
@@ -242,7 +359,12 @@ function SpotEditor({ contracts, spot, onUpdated }) {
 
         <div className="field">
           <label>Availability</label>
-          <button className="button-secondary" type="button" onClick={toggleAvailability}>
+          <button
+            className="button-secondary"
+            disabled={isBusy}
+            type="button"
+            onClick={toggleAvailability}
+          >
             {spot.isAvailable ? "Mark Unavailable" : "Mark Available"}
           </button>
         </div>
@@ -260,17 +382,20 @@ function SpotEditor({ contracts, spot, onUpdated }) {
       </div>
 
       <div className="inline-actions">
-        <button className="button" type="submit">
-          Save Spot
+        <button className="button" disabled={isBusy} type="submit">
+          {isBusy ? status : "Save Spot"}
         </button>
         <span className="muted">Status: {status}</span>
+        {transactionHash ? (
+          <span className="muted">Tx: {shortenHash(transactionHash)}</span>
+        ) : null}
       </div>
     </form>
   );
 }
 
 export function ProfilePage() {
-  const { account, connect, contracts } = useContractConnection();
+  const { account, balance, chainId, connect, contracts } = useContractConnection();
   const [activeTab, setActiveTab] = useState("bookings");
   const [isLoading, setIsLoading] = useState(false);
   const [myBookings, setMyBookings] = useState([]);
@@ -321,6 +446,10 @@ export function ProfilePage() {
     () => splitBookingsByTime(myBookings),
     [myBookings]
   );
+  const splitOwnedBookings = useMemo(
+    () => splitBookingsByTime(ownedSpotBookings),
+    [ownedSpotBookings]
+  );
 
   return (
     <div className="app-root">
@@ -337,7 +466,7 @@ export function ProfilePage() {
         <Link className="button-secondary" to="/add-spot">
           Add Spot
         </Link>
-        <WalletButton account={account} connect={connect} />
+        <WalletButton account={account} balance={balance} chainId={chainId} connect={connect} />
       </header>
 
       <main className="content-page">
@@ -370,12 +499,23 @@ export function ProfilePage() {
           {activeTab === "bookings" ? (
             <section className="profile-grid">
               <div className="form-panel">
-                <p className="eyebrow">Now</p>
-                <h2 className="panel-title">My bookings</h2>
+                <p className="eyebrow">Next</p>
+                <h2 className="panel-title">Upcoming bookings</h2>
                 <BookingList
-                  bookings={splitBookings.current}
+                  bookings={splitBookings.upcoming}
                   contracts={contracts}
-                  emptyText="No current bookings yet."
+                  emptyText="No upcoming bookings yet."
+                  mode="renter"
+                  onUpdated={() => setReloadKey((current) => current + 1)}
+                />
+              </div>
+              <div className="form-panel">
+                <p className="eyebrow">Now</p>
+                <h2 className="panel-title">Active bookings</h2>
+                <BookingList
+                  bookings={splitBookings.active}
+                  contracts={contracts}
+                  emptyText="No active bookings right now."
                   mode="renter"
                   onUpdated={() => setReloadKey((current) => current + 1)}
                 />
@@ -387,6 +527,17 @@ export function ProfilePage() {
                   bookings={splitBookings.history}
                   contracts={contracts}
                   emptyText="No booking history found yet."
+                  mode="renter"
+                  onUpdated={() => setReloadKey((current) => current + 1)}
+                />
+              </div>
+              <div className="form-panel">
+                <p className="eyebrow">Cancelled</p>
+                <h2 className="panel-title">Cancelled bookings</h2>
+                <BookingList
+                  bookings={splitBookings.cancelled}
+                  contracts={contracts}
+                  emptyText="No cancelled bookings."
                   mode="renter"
                   onUpdated={() => setReloadKey((current) => current + 1)}
                 />
@@ -414,11 +565,25 @@ export function ProfilePage() {
               </div>
               <div className="form-panel">
                 <p className="eyebrow">Spot bookings</p>
-                <h2 className="panel-title">Bookings on my spots</h2>
+                <h2 className="panel-title">Active and upcoming</h2>
                 <BookingList
-                  bookings={ownedSpotBookings}
+                  bookings={[
+                    ...splitOwnedBookings.active,
+                    ...splitOwnedBookings.upcoming
+                  ]}
                   contracts={contracts}
-                  emptyText="No one has booked your spots yet."
+                  emptyText="No active or upcoming bookings on your spots."
+                  mode="owner"
+                  onUpdated={() => setReloadKey((current) => current + 1)}
+                />
+                <h2 className="panel-title">Past spot bookings</h2>
+                <BookingList
+                  bookings={[
+                    ...splitOwnedBookings.history,
+                    ...splitOwnedBookings.cancelled
+                  ]}
+                  contracts={contracts}
+                  emptyText="No past spot bookings yet."
                   mode="owner"
                   onUpdated={() => setReloadKey((current) => current + 1)}
                 />

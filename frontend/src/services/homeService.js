@@ -39,7 +39,7 @@ function getMarkerStatus(spot, currentUser) {
     return "inactive";
   }
 
-  if (spot.isUsedNow || (currentUser && currentUser !== ZeroAddress)) {
+  if (spot.currentBooking || (currentUser && currentUser !== ZeroAddress)) {
     return "reserved";
   }
 
@@ -49,28 +49,34 @@ function getMarkerStatus(spot, currentUser) {
 function normalizeBookingStruct(rawBooking) {
   return {
     endTime: rawBooking.endTime ?? rawBooking[5],
+    id: rawBooking.id ?? rawBooking[0],
+    renter: rawBooking.renter ?? rawBooking[2],
     startTime: rawBooking.startTime ?? rawBooking[4],
     status: Number(rawBooking.status ?? rawBooking[8])
   };
 }
 
-async function getIsSpotUsedNow(bookingManager, spotId) {
+async function getCurrentBooking(bookingManager, spotId) {
   const now = Math.floor(Date.now() / 1000);
   const bookingIds = await getSpotBookings(bookingManager, spotId);
   const bookings = await Promise.all(
     bookingIds.map((bookingId) => getBooking(bookingManager, bookingId))
   );
 
-  return bookings.some((rawBooking) => {
+  return bookings.map((rawBooking) => {
     const booking = normalizeBookingStruct(rawBooking);
     const isReservedOrActive = booking.status === 0 || booking.status === 1;
 
-    return (
+    if (
       isReservedOrActive &&
       Number(booking.startTime) <= now &&
       Number(booking.endTime) > now
-    );
-  });
+    ) {
+      return booking;
+    }
+
+    return null;
+  }).find(Boolean) || null;
 }
 
 function buildMapSpots(spots) {
@@ -117,12 +123,12 @@ export async function loadHomePageData(contracts, account) {
 
   const spotPromises = Array.from({ length: totalSpots }, async (_, index) => {
     const spotId = index + 1;
-    const [spot, owner, currentUser, userExpires, isUsedNow] = await Promise.all([
+    const [spot, owner, currentUser, userExpires, currentBooking] = await Promise.all([
       getParkingSpot(contracts.parkingRegistry, spotId),
       getTokenOwner(contracts.parkingPermitNft, spotId),
       getSpotUser(contracts.parkingPermitNft, spotId),
       getSpotUserExpires(contracts.parkingPermitNft, spotId),
-      getIsSpotUsedNow(contracts.bookingManager, spotId)
+      getCurrentBooking(contracts.bookingManager, spotId)
     ]);
 
     const normalizedSpot = normalizeSpotStruct(spot);
@@ -130,10 +136,10 @@ export async function loadHomePageData(contracts, account) {
     return {
       ...normalizedSpot,
       currentUser,
+      currentBooking,
       displayPrice: formatPricePerHour(normalizedSpot.pricePerHour),
-      isUsedNow,
       owner,
-      status: getMarkerStatus({ ...normalizedSpot, isUsedNow }, currentUser),
+      status: getMarkerStatus({ ...normalizedSpot, currentBooking }, currentUser),
       tokenId: spotId,
       userExpires
     };
@@ -143,13 +149,22 @@ export async function loadHomePageData(contracts, account) {
     (await Promise.all(spotPromises)).filter((spot) => spot.isActive)
   );
   const activeSessions = spots
-    .filter((spot) => spot.currentUser?.toLowerCase() === account?.toLowerCase())
+    .filter((spot) => {
+      const currentBookingRenter = spot.currentBooking?.renter?.toLowerCase();
+      const currentNftUser = spot.currentUser?.toLowerCase();
+      const accountAddress = account?.toLowerCase();
+
+      return (
+        accountAddress &&
+        (currentBookingRenter === accountAddress || currentNftUser === accountAddress)
+      );
+    })
     .map((spot) => ({
-      expiresLabel: buildSessionLabel(spot.userExpires),
+      expiresLabel: buildSessionLabel(spot.currentBooking?.endTime || spot.userExpires),
       id: spot.id,
       locationName: spot.locationName,
       owner: spot.owner,
-      userExpires: spot.userExpires
+      userExpires: spot.currentBooking?.endTime || spot.userExpires
     }));
 
   const ownedSpots = spots.filter(

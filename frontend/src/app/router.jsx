@@ -4,8 +4,6 @@ import { AddSpotPage } from "../pages/AddSpotPage";
 import { BookingPage } from "../pages/BookingPage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
-import { CreateSpotTestPage } from "../pages/tests/CreateSpotTestPage";
-import { GettersTestPage } from "../pages/tests/GettersTestPage";
 
 export const router = createBrowserRouter([
   {
@@ -27,14 +25,6 @@ export const router = createBrowserRouter([
       {
         path: "profile",
         element: <ProfilePage />
-      },
-      {
-        path: "tests/getters",
-        element: <GettersTestPage />
-      },
-      {
-        path: "tests/createSpot",
-        element: <CreateSpotTestPage />
       }
     ]
   }

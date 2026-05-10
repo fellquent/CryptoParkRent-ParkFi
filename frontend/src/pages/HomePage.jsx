@@ -7,7 +7,7 @@ import { useContractConnection } from "../state/contractConnectionContext";
 import { formatSpotStatus, shortenAddress } from "../utils/formatters";
 
 export function HomePage() {
-  const { account, connect, contracts, status } = useContractConnection();
+  const { account, balance, chainId, connect, contracts, status } = useContractConnection();
   const [homeData, setHomeData] = useState({
     activeSessions: [],
     featuredSpots: [],
@@ -70,6 +70,7 @@ export function HomePage() {
   const selectedSpot =
     visibleSpots.find((spot) => spot.id === selectedSpotId) || null;
   const hasSelection = Boolean(selectedSpot);
+  const canBookSelectedSpot = selectedSpot?.status === "available";
 
   useEffect(() => {
     if (selectedSpotId && !selectedSpot) {
@@ -100,7 +101,7 @@ export function HomePage() {
           Profile
         </Link>
 
-        <WalletButton account={account} connect={connect} />
+        <WalletButton account={account} balance={balance} chainId={chainId} connect={connect} />
       </header>
 
       <section className={`map-workspace${isSpotListOpen ? " has-left-panel" : ""}`}>
@@ -196,7 +197,7 @@ export function HomePage() {
                   <strong>{shortenAddress(selectedSpot.owner)}</strong>
                 </div>
                 <div className="detail-row">
-                  <span className="muted">Capacity</span>
+                  <span className="muted">Vehicle capacity</span>
                   <strong>{selectedSpot.capacity.toString()}</strong>
                 </div>
                 <div className="detail-row">
@@ -215,9 +216,15 @@ export function HomePage() {
                 <strong>{selectedSpot.displayPrice}</strong>
               </div>
 
-              <Link className="button" to={`/booking/${selectedSpot.id.toString()}`}>
-                Buy Parking
-              </Link>
+              {canBookSelectedSpot ? (
+                <Link className="button" to={`/booking/${selectedSpot.id.toString()}`}>
+                  Buy Parking
+                </Link>
+              ) : (
+                <button className="button" disabled type="button">
+                  Unavailable
+                </button>
+              )}
             </footer>
           </>
         ) : null}

@@ -8,13 +8,21 @@ export function shortenAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+export function shortenHash(hash) {
+  if (!hash) {
+    return "-";
+  }
+
+  return `${hash.slice(0, 10)}...${hash.slice(-6)}`;
+}
+
 export function formatSpotStatus(status) {
   if (status === "available") {
     return "Available";
   }
 
   if (status === "reserved") {
-    return "Currently reserved";
+    return "In use now";
   }
 
   return "Unavailable";
