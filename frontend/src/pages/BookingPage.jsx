@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { WalletButton } from "../components/shared/WalletButton";
 import { bookSpot } from "../services/bookingManagerWriteService";
 import { getParkingSpot } from "../services/parkingRegistryReadService";
 import { useContractConnection } from "../state/contractConnectionContext";
@@ -139,9 +140,7 @@ export function BookingPage() {
         <Link className="button-secondary" to="/add-spot">
           Add Spot
         </Link>
-        <button className="button" type="button" onClick={connect}>
-          {account ? shortenAddress(account) : "Connect Wallet"}
-        </button>
+        <WalletButton account={account} connect={connect} />
       </header>
 
       <main className="content-page">

@@ -1,4 +1,5 @@
 import { useContractConnection } from "../../state/contractConnectionContext";
+import { WalletButton } from "./WalletButton";
 
 export function ConnectionStatus() {
   const { account, chainId, connect, contractAddresses, error, status } =
@@ -13,9 +14,7 @@ export function ConnectionStatus() {
       <p>BookingManager: {contractAddresses?.bookingManagerAddress || "-"}</p>
       <p>ParkingRegistry: {contractAddresses?.parkingRegistryAddress || "-"}</p>
       <p>ParkingPermitNFT: {contractAddresses?.parkingPermitNftAddress || "-"}</p>
-      <button type="button" onClick={connect}>
-        Connect MetaMask
-      </button>
+      <WalletButton account={account} connect={connect} />
       {error ? <p>{error.message}</p> : null}
     </section>
   );

@@ -1,9 +1,10 @@
 import { parseEther } from "ethers";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LocationPickerMap } from "../components/map/LocationPickerMap";
+import { WalletButton } from "../components/shared/WalletButton";
 import { createParkingSpot } from "../services/parkingRegistryWriteService";
 import { useContractConnection } from "../state/contractConnectionContext";
-import { shortenAddress } from "../utils/formatters";
 
 const DEFAULT_FORM = {
   capacity: "1",
@@ -40,6 +41,8 @@ export function AddSpotPage() {
   const navigate = useNavigate();
   const { account, connect, contracts } = useContractConnection();
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [hasPickedLocation, setHasPickedLocation] = useState(false);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [status, setStatus] = useState("Idle");
   const [error, setError] = useState(null);
 
@@ -84,6 +87,16 @@ export function AddSpotPage() {
     }
   };
 
+  const applyPickedLocation = ({ latitude, longitude }) => {
+    setForm((current) => ({
+      ...current,
+      latitude,
+      longitude
+    }));
+    setHasPickedLocation(true);
+    setIsLocationPickerOpen(false);
+  };
+
   return (
     <div className="app-root">
       <header className="topbar">
@@ -103,10 +116,17 @@ export function AddSpotPage() {
           Profile
         </Link>
 
-        <button className="button" type="button" onClick={connect}>
-          {account ? shortenAddress(account) : "Connect Wallet"}
-        </button>
+        <WalletButton account={account} connect={connect} />
       </header>
+
+      {isLocationPickerOpen ? (
+        <LocationPickerMap
+          initialLatitude={form.latitude}
+          initialLongitude={form.longitude}
+          onApply={applyPickedLocation}
+          onClose={() => setIsLocationPickerOpen(false)}
+        />
+      ) : null}
 
       <main className="content-page">
         <div className="content-shell">
@@ -146,32 +166,21 @@ export function AddSpotPage() {
                   />
                 </div>
 
-                <div className="field">
-                  <label htmlFor="latitude">Latitude</label>
-                  <input
-                    className="form-input"
-                    id="latitude"
-                    name="latitude"
-                    required
-                    type="number"
-                    step="0.000001"
-                    value={form.latitude}
-                    onChange={updateField}
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="longitude">Longitude</label>
-                  <input
-                    className="form-input"
-                    id="longitude"
-                    name="longitude"
-                    required
-                    type="number"
-                    step="0.000001"
-                    value={form.longitude}
-                    onChange={updateField}
-                  />
+                <div className="field full">
+                  <label>Location</label>
+                  <div className="location-picker-summary">
+                    <span>
+                      Selected location: {Number(form.latitude).toFixed(6)},{" "}
+                      {Number(form.longitude).toFixed(6)}
+                    </span>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={() => setIsLocationPickerOpen(true)}
+                    >
+                      {hasPickedLocation ? "Change location" : "Pick on map"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="field">
@@ -225,6 +234,14 @@ export function AddSpotPage() {
                 <div className="detail-row">
                   <span className="muted">Capacity</span>
                   <strong>{form.capacity || "0"}</strong>
+                </div>
+                <div className="detail-row">
+                  <span className="muted">Latitude</span>
+                  <strong>{Number(form.latitude).toFixed(6)}</strong>
+                </div>
+                <div className="detail-row">
+                  <span className="muted">Longitude</span>
+                  <strong>{Number(form.longitude).toFixed(6)}</strong>
                 </div>
                 <div className="detail-row">
                   <span className="muted">Latitude E6</span>

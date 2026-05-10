@@ -1,5 +1,9 @@
 import { ZeroAddress } from "ethers";
 import {
+  getBooking,
+  getSpotBookings
+} from "./bookingManagerReadService";
+import {
   getAllActiveSpots,
   getParkingSpot,
   getTotalSpots
@@ -31,15 +35,42 @@ function coordinateFromE6(value) {
 }
 
 function getMarkerStatus(spot, currentUser) {
-  if (!spot.isActive || !spot.isAvailable) {
+  if (!spot.isAvailable) {
     return "inactive";
   }
 
-  if (currentUser && currentUser !== ZeroAddress) {
+  if (spot.isUsedNow || (currentUser && currentUser !== ZeroAddress)) {
     return "reserved";
   }
 
   return "available";
+}
+
+function normalizeBookingStruct(rawBooking) {
+  return {
+    endTime: rawBooking.endTime ?? rawBooking[5],
+    startTime: rawBooking.startTime ?? rawBooking[4],
+    status: Number(rawBooking.status ?? rawBooking[8])
+  };
+}
+
+async function getIsSpotUsedNow(bookingManager, spotId) {
+  const now = Math.floor(Date.now() / 1000);
+  const bookingIds = await getSpotBookings(bookingManager, spotId);
+  const bookings = await Promise.all(
+    bookingIds.map((bookingId) => getBooking(bookingManager, bookingId))
+  );
+
+  return bookings.some((rawBooking) => {
+    const booking = normalizeBookingStruct(rawBooking);
+    const isReservedOrActive = booking.status === 0 || booking.status === 1;
+
+    return (
+      isReservedOrActive &&
+      Number(booking.startTime) <= now &&
+      Number(booking.endTime) > now
+    );
+  });
 }
 
 function buildMapSpots(spots) {
@@ -86,11 +117,12 @@ export async function loadHomePageData(contracts, account) {
 
   const spotPromises = Array.from({ length: totalSpots }, async (_, index) => {
     const spotId = index + 1;
-    const [spot, owner, currentUser, userExpires] = await Promise.all([
+    const [spot, owner, currentUser, userExpires, isUsedNow] = await Promise.all([
       getParkingSpot(contracts.parkingRegistry, spotId),
       getTokenOwner(contracts.parkingPermitNft, spotId),
       getSpotUser(contracts.parkingPermitNft, spotId),
-      getSpotUserExpires(contracts.parkingPermitNft, spotId)
+      getSpotUserExpires(contracts.parkingPermitNft, spotId),
+      getIsSpotUsedNow(contracts.bookingManager, spotId)
     ]);
 
     const normalizedSpot = normalizeSpotStruct(spot);
@@ -99,14 +131,17 @@ export async function loadHomePageData(contracts, account) {
       ...normalizedSpot,
       currentUser,
       displayPrice: formatPricePerHour(normalizedSpot.pricePerHour),
+      isUsedNow,
       owner,
-      status: getMarkerStatus(normalizedSpot, currentUser),
+      status: getMarkerStatus({ ...normalizedSpot, isUsedNow }, currentUser),
       tokenId: spotId,
       userExpires
     };
   });
 
-  const spots = buildMapSpots(await Promise.all(spotPromises));
+  const spots = buildMapSpots(
+    (await Promise.all(spotPromises)).filter((spot) => spot.isActive)
+  );
   const activeSessions = spots
     .filter((spot) => spot.currentUser?.toLowerCase() === account?.toLowerCase())
     .map((spot) => ({

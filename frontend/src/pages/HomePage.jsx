@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { SpotMap } from "../components/map/SpotMap";
+import { WalletButton } from "../components/shared/WalletButton";
 import { loadHomePageData } from "../services/homeService";
 import { useContractConnection } from "../state/contractConnectionContext";
 import { formatSpotStatus, shortenAddress } from "../utils/formatters";
@@ -99,9 +100,7 @@ export function HomePage() {
           Profile
         </Link>
 
-        <button className="button" type="button" onClick={connect}>
-          {account ? shortenAddress(account) : "Connect Wallet"}
-        </button>
+        <WalletButton account={account} connect={connect} />
       </header>
 
       <section className={`map-workspace${isSpotListOpen ? " has-left-panel" : ""}`}>

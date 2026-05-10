@@ -57,3 +57,14 @@ export async function setSpotAvailability(contract, spotId, isAvailable) {
     status: receipt.status
   };
 }
+
+export async function deactivateParkingSpot(contract, spotId) {
+  const tx = await contract.deactivateSpot(toBigIntField(spotId, "spotId"));
+  const receipt = await tx.wait();
+
+  return {
+    hash: tx.hash,
+    receipt,
+    status: receipt.status
+  };
+}
