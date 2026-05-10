@@ -1,214 +1,226 @@
 # ParkFi - Rent Parking Using Crypto
 
-ParkFi is a decentralized web application that allows users to rent out or book parking spaces using cryptocurrency payments and smart contracts.
+ParkFi is a decentralized parking marketplace. Parking owners can list spots, renters can book them for a time window, and ETH payments are held by smart contracts until the booking is finished.
 
-The goal of the project is to demonstrate how blockchain can be used for peer-to-peer rental services without relying on a centralized middleman. Parking owners can list their available parking spots, renters can book them for a selected time period, and payments are handled through smart contracts.
-
----
-
-## What is Implemented
-
-### Smart Contract (`contracts/ParkFi.sol`)
-
-The core backend is a Solidity smart contract deployed with Hardhat 3. It includes:
-
-- **Parking Spot Management** - owners can create, update, toggle availability, and deactivate parking spots with location coordinates (lat/lon as E6 integers), price per hour, and capacity
-- **Booking with Escrow** - renters send ETH to book a spot for a time range; payment is held in the contract until the booking period ends
-- **Payment Release** - after the booking ends, anyone can trigger payment release; the owner receives their share minus a platform fee
-- **Booking Cancellation** - renters can cancel before the booking starts and receive a full refund
-- **Capacity & Overlap Detection** - spots support multiple simultaneous bookings up to a configurable capacity; overlapping time ranges are checked on-chain
-- **Platform Fee** - configurable fee in basis points (e.g., 250 = 2.5%), stored per-booking at creation time so fee changes don't affect existing bookings
-- **Admin Controls** - contract owner can update the fee, withdraw accumulated fees, and pause/unpause the contract
-- **Security** - uses OpenZeppelin v5 (Ownable, ReentrancyGuard, Pausable), checks-effects-interactions pattern, `call{}` instead of `transfer`
-
-### Tests (`test/ParkFi.test.js`)
-
-61 tests covering all contract functionality:
-
-- Deployment and initialization
-- Spot CRUD and validation (price, capacity, coordinates)
-- Booking lifecycle (create, release, cancel)
-- Capacity and time overlap enforcement
-- Escrow payment flow and fee calculations
-- Admin access control (fee, withdraw, pause)
-- View functions (spots by owner, bookings by renter, etc.)
-- Edge cases (fee change isolation, deactivation with bookings)
-
-### Deployment (`scripts/deploy.js`)
-
-Deploy script for local Hardhat network and Sepolia testnet.
-
-### Tech Stack (Backend)
-
-- Solidity 0.8.27
-- Hardhat 3.4.5
-- OpenZeppelin Contracts v5
-- Ethers.js v6
-- Mocha + Chai for testing
+The app uses a React/Vite frontend, MetaMask wallet connection, Leaflet/OpenStreetMap for map interactions, and Solidity contracts deployed with Hardhat.
 
 ---
 
-## Project Idea
+## What Is Implemented
 
-In many cities, private parking spaces stay unused for hours or days. At the same time, drivers often struggle to find short-term parking. ParkFi solves this by creating a decentralized marketplace where:
+### Smart Contracts
 
-- Parking owners can list their parking spot.
-- Drivers can rent parking spots using crypto.
-- Smart contracts hold and release payments.
-- Booking history is stored transparently on-chain.
-- Users interact with the system through a React frontend.
+The backend is split into three contracts:
 
----
+- `ParkingPermitNFT` - non-transferable ERC-721 spot token with ERC-4907-style user assignment for active rentals.
+- `ParkingRegistry` - creates, updates, toggles availability, and deactivates parking spots.
+- `BookingManager` - creates bookings, holds escrowed ETH, handles cancellations, releases payments, and stores booking history.
 
-## Main Features
+Current contract features:
 
-## Map Integration
-
-ParkFi includes an interactive map that allows renters to visually find available parking spots nearby.
-
-Instead of only displaying parking spots as a list, the platform shows each available parking space as a marker on a map. Users can click a marker to view the parking spot details, price, owner address, and booking option.
-
-The map integration improves the user experience because parking is location-based by nature.
-
----
-
-## Map Features
-
-- Display all available parking spots on an interactive map.
-- Show parking spot markers based on latitude and longitude.
-- Click a marker to open parking details.
-- Show price per hour inside the marker popup.
-- Allow users to open the full parking details page.
-- Optional: filter parking spots by city, price, capacity or availability.
-- Optional: use browser geolocation to show spots near the user.
-
----
-
-## Map Technology
-
-The recommended map stack is:
-
-- React Leaflet
-- Leaflet
-- OpenStreetMap tiles
-
-This approach is free and does not require a paid Google Maps API key.
-
----
-
-## Parking Spot Location Data
-
-Each parking listing should include location data.
-
-Example:
-
-```solidity
-struct ParkingSpot {
-    uint256 id;
-    address owner;
-    string locationName;
-    string description;
-    int256 latitudeE6;
-    int256 longitudeE6;
-    uint256 pricePerHour;
-    bool isAvailable;
-}
-```
-
-### For Parking Owners
-
-- Connect crypto wallet.
-- Create a parking listing.
-- Set price per hour or per day.
-- Set location description.
-- Set availability status.
-- Set capacity of a spot.
-- Receive crypto payment after booking is completed.
-
-### For Renters
-
-- Connect crypto wallet.
-- Browse available parking spots.
-- View price, location, and availability.
-- Book a parking spot.
-- Pay using crypto.
-- View active and past bookings.
-
-### Blockchain Features
-
-- Smart contract-based booking system.
-- Crypto payments through the contract.
-- Transparent rental records.
-- No centralized payment processor.
-- Wallet-based user identity.
-
----
-
-## Tech Stack
+- Parking spots with name, description, latitude/longitude as E6 integers, price per hour, capacity, availability, and active/deactivated state.
+- Booking with ETH escrow.
+- Cancellation before a booking starts, using the contract's refund rules.
+- Payment redemption after a booking ends.
+- Platform fee accounting.
+- Owner/admin controls for pausing, fees, and withdrawals at contract level.
+- Deactivated spots are treated as removed from active UI, while booking history remains available.
 
 ### Frontend
 
-- React
-- Vite
-- Ethers.js or Wagmi
-- Tailwind CSS
-- MetaMask wallet connection
+- MetaMask wallet connection.
+- Interactive map of active parking spots.
+- Yellow markers for spots currently in use.
+- Add spot form with map-based point picker instead of manual coordinate entry.
+- Booking page for selecting start time and duration.
+- Profile dashboard for renter bookings, owned spots, spot editing, deactivation, cancellation, and payment redemption.
 
-### Blockchain
+---
 
-- Solidity
-- Hardhat
-- Ethereum testnet, Polygon testnet, or local Hardhat network
-- OpenZeppelin contracts for security helpers
+## Project Structure
 
-### Optional Backend / Storage
+```text
+contracts/
+  contracts/
+    BookingManager.sol
+    ParkingPermitNFT.sol
+    ParkingRegistry.sol
+    SharedTypes.sol
+  scripts/deploy.js
+  hardhat.config.js
 
-- IPFS for images and metadata
-- Firebase or Supabase for off-chain search/filtering
-- The Graph for indexing blockchain events
+frontend/
+  src/
+    components/
+    pages/
+    services/
+    config/contracts.js
+  vite.config.js
+```
+
+---
+
+## Prerequisites
+
+- Node.js and npm
+- MetaMask browser extension
+- For local development: a MetaMask local network configured with:
+  - RPC URL: `http://127.0.0.1:8545`
+  - Chain ID: `31337`
+  - Currency: `ETH`
+- For Sepolia: Sepolia ETH, an RPC URL, and a deployer wallet private key
+
+Install dependencies:
+
+```bash
+cd contracts
+npm install
+
+cd ../frontend
+npm install
+```
+
+---
+
+## Run With Local Blockchain
+
+Use three terminals.
+
+### 1. Start the local Hardhat chain
+
+```bash
+cd contracts
+npm run node
+```
+
+Keep this terminal running. Hardhat prints funded test accounts; import one private key into MetaMask if needed.
+
+### 2. Deploy contracts locally
+
+In a second terminal:
+
+```bash
+cd contracts
+npm run deploy:local
+```
+
+Copy the `BookingManager` address from the deployment output:
+
+```text
+Booking: 0x...
+```
+
+### 3. Configure and run the frontend
+
+Create or update `frontend/.env`:
+
+```env
+VITE_BOOKING_MANAGER_ADDRESS=0xYOUR_LOCAL_BOOKING_MANAGER_ADDRESS
+```
+
+Then start Vite:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open the Vite URL, usually:
+
+```text
+http://localhost:5173
+```
+
+In MetaMask, switch to the local Hardhat network and connect the wallet. The frontend discovers `ParkingRegistry` and `ParkingPermitNFT` from `BookingManager`, so only `VITE_BOOKING_MANAGER_ADDRESS` is required.
+
+---
+
+## Run On Sepolia Testnet
+
+### 1. Configure deployment secrets
+
+Create `contracts/.env` from `contracts/.env.example`:
+
+```env
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+DEPLOYER_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+ETHERSCAN_API_KEY=YOUR_ETHERSCAN_KEY
+```
+
+`ETHERSCAN_API_KEY` is included for future verification workflows; the current deploy script only needs the RPC URL and private key.
+
+Make sure the deployer account has Sepolia ETH.
+
+### 2. Deploy to Sepolia
+
+```bash
+cd contracts
+npm run deploy:sepolia
+```
+
+Copy the deployed `BookingManager` address:
+
+```text
+Booking: 0x...
+```
+
+### 3. Point the frontend to Sepolia
+
+Create or update `frontend/.env`:
+
+```env
+VITE_BOOKING_MANAGER_ADDRESS=0xYOUR_SEPOLIA_BOOKING_MANAGER_ADDRESS
+```
+
+Start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Switch MetaMask to Sepolia, connect your wallet, and use the app. Transactions will use Sepolia ETH.
+
+---
+
+## Useful Commands
+
+Contracts:
+
+```bash
+cd contracts
+npm run compile
+npm run test
+npm run node
+npm run deploy:local
+npm run deploy:sepolia
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run dev
+npm run build
+npm run preview
+```
 
 ---
 
 ## Basic User Flow
 
-1. User opens the ParkFi website.
-2. User connects their crypto wallet.
-3. A parking owner creates a new parking listing.
-4. The listing is saved in the smart contract.
-5. A renter browses available parking spots.
-6. The renter selects a parking spot and booking duration.
-7. The renter sends crypto payment to the smart contract.
-8. The smart contract creates a booking and locks the payment.
-9. After the rental is completed, the owner receives the payment.
-10. The booking is stored in the blockchain history.
+1. Connect MetaMask.
+2. Owner creates a parking spot and chooses its point on the map.
+3. Renter browses active spots on the map.
+4. Renter selects a spot and books a time range.
+5. ETH is locked in the booking contract.
+6. Owner redeems payment after the booking ends.
+7. Booking history remains visible in the profile dashboard.
 
 ---
 
-## Smart Contract Design
+## Notes
 
-The main smart contract can be called `ParkFi.sol`.
-
-### Core Data Structures
-
-```solidity
-struct ParkingSpot {
-    uint256 id;
-    address owner;
-    string location;
-    string description;
-    uint256 pricePerHour;
-    bool isAvailable;
-}
-
-struct Booking {
-    uint256 id;
-    uint256 parkingSpotId;
-    address renter;
-    address owner;
-    uint256 startTime;
-    uint256 endTime;
-    uint256 totalPrice;
-    bool isActive;
-    bool isCompleted;
-}
-```
+- Smart contracts cannot automatically run future actions. If a booking should become active exactly at start time, someone must call `activateBooking`, or an automation service would be needed.
+- The frontend colors a spot yellow when current time is inside an active/reserved booking window, even if `activateBooking` was not called.
+- Deactivation is a soft delete: the spot is hidden from active map/owner management, but historical bookings can still reference it.
