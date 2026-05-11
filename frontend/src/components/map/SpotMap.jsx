@@ -1,7 +1,10 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+
+const DEFAULT_CENTER = [48.1486, 17.1077];
+const DEFAULT_ZOOM = 13;
 
 const statusColors = {
   available: "#22c55e",
@@ -30,32 +33,60 @@ function createMarkerIcon(status, isSelected) {
   });
 }
 
-function MapViewport({ spots, selectedSpot }) {
+function MapStartup() {
   const map = useMap();
+  const didRequestLocation = useRef(false);
 
   useEffect(() => {
     map.invalidateSize();
 
-    if (!spots.length) {
-      map.setView([48.1486, 17.1077], 13);
+    if (didRequestLocation.current || !navigator.geolocation) {
       return;
     }
 
-    if (selectedSpot) {
+    didRequestLocation.current = true;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        map.setView(
+          [position.coords.latitude, position.coords.longitude],
+          Math.max(map.getZoom(), 14),
+          { animate: true }
+        );
+      },
+      () => {},
+      {
+        enableHighAccuracy: true,
+        maximumAge: 60000,
+        timeout: 5000
+      }
+    );
+  }, [map]);
+
+  return null;
+}
+
+function SelectedSpotViewport({ selectedSpot }) {
+  const map = useMap();
+  const previousSelectedSpotId = useRef(null);
+
+  useEffect(() => {
+    map.invalidateSize();
+
+    if (!selectedSpot) {
+      previousSelectedSpotId.current = null;
+      return;
+    }
+
+    if (previousSelectedSpotId.current !== selectedSpot.id?.toString()) {
+      previousSelectedSpotId.current = selectedSpot.id?.toString();
       map.setView(
         [selectedSpot.latitude, selectedSpot.longitude],
         Math.max(map.getZoom(), 15),
         { animate: true }
       );
-      return;
     }
-
-    const bounds = L.latLngBounds(
-      spots.map((spot) => [spot.latitude, spot.longitude])
-    );
-
-    map.fitBounds(bounds.pad(0.2), { animate: true });
-  }, [map, selectedSpot, spots]);
+  }, [map, selectedSpot]);
 
   return null;
 }
@@ -73,17 +104,19 @@ function EmptyMapClick({ onEmptyClick }) {
 export function SpotMap({ selectedSpot, spots, onSelectSpot, onEmptyClick }) {
   return (
     <MapContainer
-      center={[48.1486, 17.1077]}
+      center={DEFAULT_CENTER}
       style={{ height: "100%", width: "100%" }}
-      zoom={13}
+      zoom={DEFAULT_ZOOM}
       scrollWheelZoom
-    >
+    >   
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        noWrap
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <MapViewport selectedSpot={selectedSpot} spots={spots} />
+      <MapStartup />
+      <SelectedSpotViewport selectedSpot={selectedSpot} />
       <EmptyMapClick onEmptyClick={onEmptyClick} />
 
       {spots.map((spot) => (

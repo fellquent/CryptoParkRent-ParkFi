@@ -63,10 +63,11 @@ async function getIsSpotUsedNow(bookingManager, spotId) {
 
   return bookings.some((rawBooking) => {
     const booking = normalizeBookingStruct(rawBooking);
-    const isReservedOrActive = booking.status === 0 || booking.status === 1;
+    const blocksCurrentUse =
+      booking.status === 0 || booking.status === 1 || booking.status === 2;
 
     return (
-      isReservedOrActive &&
+      blocksCurrentUse &&
       Number(booking.startTime) <= now &&
       Number(booking.endTime) > now
     );

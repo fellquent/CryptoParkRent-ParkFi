@@ -10,6 +10,8 @@ import "./ParkingPermitNFT.sol";
 import "./SharedTypes.sol";
 
 contract BookingManager is Ownable, ReentrancyGuard, Pausable {
+    uint256 private constant SLOT_DURATION = 15 minutes;
+
     IParkingRegistry public immutable registry;
     ParkingPermitNFT public immutable permitNFT;
 
@@ -54,6 +56,8 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
     ) external payable nonReentrant whenNotPaused {
         require(startTime >= block.timestamp, "Start must be present or future");
         require(endTime > startTime, "Invalid time range");
+        require(startTime % SLOT_DURATION == 0, "Start not aligned");
+        require(endTime % SLOT_DURATION == 0, "End not aligned");
 
         SharedTypes.ParkingSpot memory spot = registry.getParkingSpot(spotId);
 
@@ -61,10 +65,10 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         require(spot.isAvailable, "Spot unavailable");
         require(!_hasOverlap(spotId, startTime, endTime), "Time slot unavailable");
 
-        uint256 durationHours = (endTime - startTime) / 1 hours;
-        require(durationHours > 0, "Minimum 1 hour");
+        uint256 durationSeconds = endTime - startTime;
+        require(durationSeconds >= SLOT_DURATION, "Minimum 15 minutes");
 
-        uint256 totalPrice = durationHours * spot.pricePerHour;
+        uint256 totalPrice = (spot.pricePerHour * durationSeconds) / 1 hours;
         require(msg.value == totalPrice, "Incorrect payment");
 
         uint256 fee = (totalPrice * platformFeeBps) / 10000;
@@ -134,7 +138,7 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
                 booking.status == SharedTypes.BookingStatus.Active,
             "Booking inactive"
         );
-        require(block.timestamp >= booking.endTime, "Booking not finished");
+        require(block.timestamp >= booking.startTime, "Booking not started");
 
         booking.status = SharedTypes.BookingStatus.Completed;
 
@@ -183,9 +187,13 @@ contract BookingManager is Ownable, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < ids.length; i++) {
             SharedTypes.Booking memory existing = bookings[ids[i]];
 
+            if (existing.status == SharedTypes.BookingStatus.Cancelled) {
+                continue;
+            }
+
             if (
-                existing.status == SharedTypes.BookingStatus.Cancelled ||
-                existing.status == SharedTypes.BookingStatus.Completed
+                existing.status == SharedTypes.BookingStatus.Completed &&
+                block.timestamp >= existing.endTime
             ) {
                 continue;
             }

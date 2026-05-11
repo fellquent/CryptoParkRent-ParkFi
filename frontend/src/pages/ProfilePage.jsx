@@ -30,10 +30,8 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
   const isReserved = booking.status === 0;
   const isActive = booking.status === 1;
   const hasStarted = Number(booking.startTime) <= now;
-  const hasEnded = Number(booking.endTime) <= now;
   const canCancel = mode === "renter" && isReserved && !hasStarted;
   const canShowRedeem = mode === "owner" && (isReserved || isActive) && hasStarted;
-  const canRedeem = canShowRedeem && hasEnded;
 
   const runCancel = async () => {
     setStatus("Cancelling...");
@@ -87,8 +85,8 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
         {canShowRedeem ? (
           <button
             className="button success-button"
-            disabled={!canRedeem || status === "Redeeming..."}
-            title={canRedeem ? "Redeem payment" : "Payment can be redeemed after the booking ends"}
+            disabled={status === "Redeeming..."}
+            title="Redeem payment"
             type="button"
             onClick={runReleasePayment}
           >
