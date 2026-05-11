@@ -19,6 +19,7 @@ import {
 } from "../services/parkingRegistryWriteService";
 import { useContractConnection } from "../state/contractConnectionContext";
 import { shortenAddress } from "../utils/formatters";
+import { VEHICLE_SIZE_OPTIONS } from "../utils/vehicleSizes";
 
 function getActionErrorMessage(error) {
   return error?.reason || error?.revert?.args?.[0] || error?.shortMessage || error?.message || "Transaction failed.";
@@ -122,10 +123,10 @@ function BookingList({ bookings, contracts, emptyText, mode, onUpdated }) {
 
 function SpotEditor({ contracts, spot, onUpdated }) {
   const [form, setForm] = useState({
-    capacity: spot.capacity.toString(),
     description: spot.description || "",
     locationName: spot.locationName || "",
-    priceEth: spot.displayPrice.split(" ")[0]
+    priceEth: spot.displayPrice.split(" ")[0],
+    vehicleSize: spot.vehicleSize.toString()
   });
   const [status, setStatus] = useState("Idle");
 
@@ -144,10 +145,10 @@ function SpotEditor({ contracts, spot, onUpdated }) {
 
     try {
       await updateParkingSpot(contracts.parkingRegistry, spot.id, {
-        capacity: form.capacity,
         description: form.description,
         locationName: form.locationName,
-        pricePerHour: parseEther(form.priceEth || "0").toString()
+        pricePerHour: parseEther(form.priceEth || "0").toString(),
+        vehicleSize: form.vehicleSize
       });
       setStatus("Saved");
       onUpdated();
@@ -225,17 +226,20 @@ function SpotEditor({ contracts, spot, onUpdated }) {
         </div>
 
         <div className="field">
-          <label htmlFor={`capacity-${spot.id.toString()}`}>Capacity</label>
-          <input
-            className="form-input"
-            id={`capacity-${spot.id.toString()}`}
-            min="1"
-            name="capacity"
-            step="1"
-            type="number"
-            value={form.capacity}
+          <label htmlFor={`vehicleSize-${spot.id.toString()}`}>Vehicle type</label>
+          <select
+            className="form-select"
+            id={`vehicleSize-${spot.id.toString()}`}
+            name="vehicleSize"
+            value={form.vehicleSize}
             onChange={updateField}
-          />
+          >
+            {VEHICLE_SIZE_OPTIONS.map((vehicleSize) => (
+              <option key={vehicleSize.value} value={vehicleSize.value}>
+                {vehicleSize.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="field">

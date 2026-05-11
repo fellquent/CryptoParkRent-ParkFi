@@ -2,14 +2,15 @@ import { useState } from "react";
 import { useContractConnection } from "../../state/contractConnectionContext";
 import { createParkingSpot } from "../../services/parkingRegistryWriteService";
 import { normalizeContractValue } from "../../utils/normalizeContractValue";
+import { VEHICLE_SIZE_OPTIONS } from "../../utils/vehicleSizes";
 
 const DEFAULT_FORM = {
-  capacity: "1",
   description: "",
   latitudeE6: "48500000",
   locationName: "",
   longitudeE6: "17100000",
-  pricePerHour: "1000000000000000"
+  pricePerHour: "1000000000000000",
+  vehicleSize: "2"
 };
 
 export function CreateSpotTestPage() {
@@ -108,13 +109,19 @@ export function CreateSpotTestPage() {
         </div>
 
         <div>
-          <label htmlFor="capacity">Capacity </label>
-          <input
-            id="capacity"
-            name="capacity"
-            value={form.capacity}
+          <label htmlFor="vehicleSize">Vehicle type </label>
+          <select
+            id="vehicleSize"
+            name="vehicleSize"
+            value={form.vehicleSize}
             onChange={updateField}
-          />
+          >
+            {VEHICLE_SIZE_OPTIONS.map((vehicleSize) => (
+              <option key={vehicleSize.value} value={vehicleSize.value}>
+                {vehicleSize.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button type="submit">createParkingSpot()</button>

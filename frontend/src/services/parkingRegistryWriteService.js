@@ -13,7 +13,7 @@ export async function createParkingSpot(contract, form) {
     toBigIntField(form.latitudeE6, "latitudeE6"),
     toBigIntField(form.longitudeE6, "longitudeE6"),
     toBigIntField(form.pricePerHour, "pricePerHour"),
-    toBigIntField(form.capacity, "capacity")
+    toBigIntField(form.vehicleSize, "vehicleSize")
   );
 
   const receipt = await tx.wait();
@@ -31,7 +31,7 @@ export async function updateParkingSpot(contract, spotId, form) {
     form.locationName,
     form.description,
     toBigIntField(form.pricePerHour, "pricePerHour"),
-    toBigIntField(form.capacity, "capacity")
+    toBigIntField(form.vehicleSize, "vehicleSize")
   );
 
   const receipt = await tx.wait();

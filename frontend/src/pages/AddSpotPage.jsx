@@ -5,14 +5,15 @@ import { LocationPickerMap } from "../components/map/LocationPickerMap";
 import { WalletButton } from "../components/shared/WalletButton";
 import { createParkingSpot } from "../services/parkingRegistryWriteService";
 import { useContractConnection } from "../state/contractConnectionContext";
+import { getVehicleSizeLabel, VEHICLE_SIZE_OPTIONS } from "../utils/vehicleSizes";
 
 const DEFAULT_FORM = {
-  capacity: "1",
   description: "",
   latitude: "48.14860",
   locationName: "",
   longitude: "17.10770",
-  priceEth: "0.001"
+  priceEth: "0.001",
+  vehicleSize: "2"
 };
 
 function coordinateToE6(value, fieldName) {
@@ -68,12 +69,12 @@ export function AddSpotPage() {
 
     try {
       const payload = {
-        capacity: form.capacity,
         description: form.description,
         latitudeE6: coordinateToE6(form.latitude, "Latitude"),
         locationName: form.locationName,
         longitudeE6: coordinateToE6(form.longitude, "Longitude"),
-        pricePerHour: parseEther(form.priceEth || "0").toString()
+        pricePerHour: parseEther(form.priceEth || "0").toString(),
+        vehicleSize: form.vehicleSize
       };
 
       await createParkingSpot(contracts.parkingRegistry, payload);
@@ -134,7 +135,7 @@ export function AddSpotPage() {
             <p className="eyebrow">New listing</p>
             <h1 className="page-title">Add parking spot</h1>
             <p className="muted">
-              Create a map listing with its coordinates, capacity, and hourly price.
+              Create a map listing with its coordinates, vehicle type, and hourly price.
             </p>
           </div>
 
@@ -199,18 +200,21 @@ export function AddSpotPage() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="capacity">Capacity</label>
-                  <input
-                    className="form-input"
-                    id="capacity"
-                    min="1"
-                    name="capacity"
+                  <label htmlFor="vehicleSize">Vehicle type</label>
+                  <select
+                    className="form-select"
+                    id="vehicleSize"
+                    name="vehicleSize"
                     required
-                    step="1"
-                    type="number"
-                    value={form.capacity}
+                    value={form.vehicleSize}
                     onChange={updateField}
-                  />
+                  >
+                    {VEHICLE_SIZE_OPTIONS.map((vehicleSize) => (
+                      <option key={vehicleSize.value} value={vehicleSize.value}>
+                        {vehicleSize.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -232,8 +236,8 @@ export function AddSpotPage() {
                   <strong>{form.priceEth || "0"} ETH</strong>
                 </div>
                 <div className="detail-row">
-                  <span className="muted">Capacity</span>
-                  <strong>{form.capacity || "0"}</strong>
+                  <span className="muted">Vehicle type</span>
+                  <strong>{getVehicleSizeLabel(form.vehicleSize)}</strong>
                 </div>
                 <div className="detail-row">
                   <span className="muted">Latitude</span>

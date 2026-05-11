@@ -17,7 +17,6 @@ import { formatPricePerHour } from "../utils/formatters";
 
 function normalizeSpotStruct(rawSpot) {
   return {
-    capacity: rawSpot.capacity ?? rawSpot[8],
     description: rawSpot.description ?? rawSpot[3],
     id: rawSpot.id ?? rawSpot[0],
     isActive: rawSpot.isActive ?? rawSpot[9],
@@ -26,7 +25,8 @@ function normalizeSpotStruct(rawSpot) {
     locationName: rawSpot.locationName ?? rawSpot[2],
     longitudeE6: rawSpot.longitudeE6 ?? rawSpot[5],
     owner: rawSpot.owner ?? rawSpot[1],
-    pricePerHour: rawSpot.pricePerHour ?? rawSpot[6]
+    pricePerHour: rawSpot.pricePerHour ?? rawSpot[6],
+    vehicleSize: rawSpot.vehicleSize ?? rawSpot[8]
   };
 }
 

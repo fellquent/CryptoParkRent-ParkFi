@@ -8,7 +8,6 @@ function normalizeSpotStruct(rawSpot) {
   const pricePerHour = rawSpot.pricePerHour ?? rawSpot[6];
 
   return {
-    capacity: rawSpot.capacity ?? rawSpot[8],
     description: rawSpot.description ?? rawSpot[3],
     displayPrice: formatPricePerHour(pricePerHour),
     id: rawSpot.id ?? rawSpot[0],
@@ -18,7 +17,8 @@ function normalizeSpotStruct(rawSpot) {
     locationName: rawSpot.locationName ?? rawSpot[2],
     longitudeE6: rawSpot.longitudeE6 ?? rawSpot[5],
     owner: rawSpot.owner ?? rawSpot[1],
-    pricePerHour
+    pricePerHour,
+    vehicleSize: rawSpot.vehicleSize ?? rawSpot[8]
   };
 }
 

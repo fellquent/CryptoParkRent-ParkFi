@@ -18,7 +18,7 @@ The backend is split into three contracts:
 
 Current contract features:
 
-- Parking spots with name, description, latitude/longitude as E6 integers, price per hour, capacity, availability, and active/deactivated state.
+- Parking spots with name, description, latitude/longitude as E6 integers, price per hour, vehicle type, availability, and active/deactivated state.
 - Booking with ETH escrow.
 - Cancellation before a booking starts, using the contract's refund rules.
 - Payment redemption after a booking ends.
