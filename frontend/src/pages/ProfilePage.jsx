@@ -32,7 +32,12 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
   const isActive = booking.status === 1;
   const hasStarted = Number(booking.startTime) <= now;
   const canCancel = mode === "renter" && isReserved && !hasStarted;
-  const canShowRedeem = mode === "owner" && (isReserved || isActive) && hasStarted;
+  const isRedeemableStatus = isReserved || isActive;
+  const canRedeem = mode === "owner" && isRedeemableStatus && hasStarted;
+  const redeemDisabled = !canRedeem || status === "Redeeming...";
+  const redeemTitle = canRedeem
+    ? "Redeem payment"
+    : "Payment can be redeemed after the booking starts.";
 
   const runCancel = async () => {
     setStatus("Cancelling...");
@@ -83,17 +88,15 @@ function BookingCard({ booking, contracts, mode, onUpdated }) {
 
       <div className="booking-card-footer">
         <strong>{booking.totalPriceLabel}</strong>
-        {canShowRedeem ? (
-          <button
-            className="button success-button"
-            disabled={status === "Redeeming..."}
-            title="Redeem payment"
-            type="button"
-            onClick={runReleasePayment}
-          >
-            {status === "Redeeming..." ? "Redeeming..." : "Redeem payment"}
-          </button>
-        ) : null}
+        <button
+          className="button success-button"
+          disabled={redeemDisabled}
+          title={redeemTitle}
+          type="button"
+          onClick={runReleasePayment}
+        >
+          {status === "Redeeming..." ? "Redeeming..." : "Redeem payment"}
+        </button>
       </div>
 
       {status !== "Idle" ? <p className="notice compact">Status: {status}</p> : null}
