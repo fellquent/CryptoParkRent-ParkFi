@@ -18,7 +18,7 @@ library SharedTypes {
         int256 longitudeE6;
         uint256 pricePerHour;
         bool isAvailable;
-        uint256 capacity;
+        uint256 vehicleSize;
         bool isActive;
     }
 

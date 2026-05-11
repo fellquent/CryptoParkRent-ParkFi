@@ -5,6 +5,7 @@ import { WalletButton } from "../components/shared/WalletButton";
 import { loadHomePageData } from "../services/homeService";
 import { useContractConnection } from "../state/contractConnectionContext";
 import { formatSpotStatus, shortenAddress } from "../utils/formatters";
+import { getVehicleSizeLabel } from "../utils/vehicleSizes";
 
 export function HomePage() {
   const { account, connect, contracts, status } = useContractConnection();
@@ -196,8 +197,8 @@ export function HomePage() {
                   <strong>{shortenAddress(selectedSpot.owner)}</strong>
                 </div>
                 <div className="detail-row">
-                  <span className="muted">Capacity</span>
-                  <strong>{selectedSpot.capacity.toString()}</strong>
+                  <span className="muted">Vehicle type</span>
+                  <strong>{getVehicleSizeLabel(selectedSpot.vehicleSize)}</strong>
                 </div>
                 <div className="detail-row">
                   <span className="muted">Coordinates</span>

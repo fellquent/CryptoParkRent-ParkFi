@@ -6,6 +6,7 @@ import { bookSpot } from "../services/bookingManagerWriteService";
 import { getParkingSpot } from "../services/parkingRegistryReadService";
 import { useContractConnection } from "../state/contractConnectionContext";
 import { formatEthAmount, formatPricePerHour, shortenAddress } from "../utils/formatters";
+import { getVehicleSizeLabel } from "../utils/vehicleSizes";
 
 const SLOT_SECONDS = 15 * 60;
 const SLOTS_PER_DAY = 96;
@@ -22,14 +23,14 @@ function normalizeSpot(rawSpot) {
   const pricePerHour = rawSpot.pricePerHour ?? rawSpot[6];
 
   return {
-    capacity: rawSpot.capacity ?? rawSpot[8],
     description: rawSpot.description ?? rawSpot[3],
     displayPrice: formatPricePerHour(pricePerHour),
     id: rawSpot.id ?? rawSpot[0],
     isAvailable: rawSpot.isAvailable ?? rawSpot[7],
     locationName: rawSpot.locationName ?? rawSpot[2],
     owner: rawSpot.owner ?? rawSpot[1],
-    pricePerHour
+    pricePerHour,
+    vehicleSize: rawSpot.vehicleSize ?? rawSpot[8]
   };
 }
 
@@ -592,8 +593,8 @@ export function BookingPage() {
                   <strong>{shortenAddress(spot?.owner)}</strong>
                 </div>
                 <div className="detail-row">
-                  <span className="muted">Capacity</span>
-                  <strong>{spot?.capacity?.toString() || "-"}</strong>
+                  <span className="muted">Vehicle type</span>
+                  <strong>{getVehicleSizeLabel(spot?.vehicleSize)}</strong>
                 </div>
               </div>
               <p className="notice">Status: {status}</p>

@@ -43,11 +43,14 @@ contract ParkingRegistry is Ownable, Pausable {
         int256 latitudeE6,
         int256 longitudeE6,
         uint256 pricePerHour,
-        uint256 capacity
+        uint256 vehicleSize
     ) external whenNotPaused returns (uint256) {
         require(bytes(locationName).length > 0, "Location required");
         require(pricePerHour > 0, "Price must be > 0");
-        require(capacity > 0, "Capacity must be > 0");
+        require(
+            vehicleSize >= 1 && vehicleSize <= 5,
+            "Invalid vehicle size"
+        );
 
         require(
             latitudeE6 >= -90000000 && latitudeE6 <= 90000000,
@@ -69,7 +72,7 @@ contract ParkingRegistry is Ownable, Pausable {
             latitudeE6: latitudeE6,
             longitudeE6: longitudeE6,
             pricePerHour: pricePerHour,
-            capacity: capacity,
+            vehicleSize: vehicleSize,
             isAvailable: true,
             isActive: true
         });
@@ -87,19 +90,22 @@ contract ParkingRegistry is Ownable, Pausable {
         string calldata locationName,
         string calldata description,
         uint256 pricePerHour,
-        uint256 capacity
+        uint256 vehicleSize
     ) external whenNotPaused {
         SharedTypes.ParkingSpot storage spot = _spots[spotId];
 
         require(spotNFT.ownerOf(spotId) == msg.sender, "Not owner");
         require(spot.isActive, "Spot inactive");
         require(pricePerHour > 0, "Price must be > 0");
-        require(capacity > 0, "Capacity must be > 0");
+        require(
+            vehicleSize >= 1 && vehicleSize <= 5,
+            "Invalid vehicle size"
+        );
 
         spot.locationName = locationName;
         spot.description = description;
         spot.pricePerHour = pricePerHour;
-        spot.capacity = capacity;
+        spot.vehicleSize = vehicleSize;
 
         emit ParkingSpotUpdated(spotId);
     }
